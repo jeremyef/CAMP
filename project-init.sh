@@ -42,10 +42,10 @@ fi
 REQUIRED_TEMPLATES=(
   "AGENTS.md"
   "HOW-TO-USE.md"
-  "BRIEF-TEMPLATE.md"
-  "CONTEXT-SCHEMA.md"
-  "DECISIONS-SCHEMA.md"
-  "SESSIONS-SCHEMA.md"
+  "memory/BRIEF-TEMPLATE.md"
+  "memory/CONTEXT-SCHEMA.md"
+  "memory/DECISIONS-SCHEMA.md"
+  "memory/SESSIONS-SCHEMA.md"
 )
 
 MISSING=()
@@ -79,12 +79,12 @@ cd "$PROJECT_NAME"
 
 # ── Copy canonical template files ─────────────────────────────────────────
 
-cp "$TEMPLATE_DIR/AGENTS.md"           ./AGENTS.md
-cp "$TEMPLATE_DIR/HOW-TO-USE.md"       ./HOW-TO-USE.md
-cp "$TEMPLATE_DIR/BRIEF-TEMPLATE.md"   ./memory/BRIEF-TEMPLATE.md
-cp "$TEMPLATE_DIR/CONTEXT-SCHEMA.md"   ./memory/CONTEXT-SCHEMA.md
-cp "$TEMPLATE_DIR/DECISIONS-SCHEMA.md" ./memory/DECISIONS-SCHEMA.md
-cp "$TEMPLATE_DIR/SESSIONS-SCHEMA.md"  ./memory/SESSIONS-SCHEMA.md
+cp "$TEMPLATE_DIR/AGENTS.md"                  ./AGENTS.md
+cp "$TEMPLATE_DIR/HOW-TO-USE.md"              ./HOW-TO-USE.md
+cp "$TEMPLATE_DIR/memory/BRIEF-TEMPLATE.md"   ./memory/BRIEF-TEMPLATE.md
+cp "$TEMPLATE_DIR/memory/CONTEXT-SCHEMA.md"   ./memory/CONTEXT-SCHEMA.md
+cp "$TEMPLATE_DIR/memory/DECISIONS-SCHEMA.md" ./memory/DECISIONS-SCHEMA.md
+cp "$TEMPLATE_DIR/memory/SESSIONS-SCHEMA.md"  ./memory/SESSIONS-SCHEMA.md
 
 # Symlink — guard against re-run collision
 if [ ! -L CLAUDE.md ]; then
