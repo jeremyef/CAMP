@@ -9,7 +9,9 @@ set -euo pipefail
 #
 # TEMPLATE_DIR must contain:
 #   AGENTS.md, HOW-TO-USE.md, BRIEF-TEMPLATE.md, CONTEXT-SCHEMA.md,
-#   DECISIONS-SCHEMA.md, SESSIONS-SCHEMA.md
+#   DECISIONS-SCHEMA.md, SESSIONS-SCHEMA.md,
+#   .claude/skills/brief/SKILL.md, .claude/skills/decide/SKILL.md,
+#   .claude/skills/wrap-up/SKILL.md
 #
 # This script is deterministic — it copies from one canonical source so
 # templates never drift out of sync between projects. No inference happens
@@ -46,6 +48,9 @@ REQUIRED_TEMPLATES=(
   "memory/CONTEXT-SCHEMA.md"
   "memory/DECISIONS-SCHEMA.md"
   "memory/SESSIONS-SCHEMA.md"
+  ".claude/skills/brief/SKILL.md"
+  ".claude/skills/decide/SKILL.md"
+  ".claude/skills/wrap-up/SKILL.md"
 )
 
 MISSING=()
@@ -74,7 +79,9 @@ trap cleanup ERR
 
 mkdir -p "$PROJECT_NAME"/memory/DECISIONS-ARCHIVE
 mkdir -p "$PROJECT_NAME"/memory/SESSIONS-ARCHIVE
-mkdir -p "$PROJECT_NAME"/.claude
+mkdir -p "$PROJECT_NAME"/.claude/skills/brief
+mkdir -p "$PROJECT_NAME"/.claude/skills/decide
+mkdir -p "$PROJECT_NAME"/.claude/skills/wrap-up
 cd "$PROJECT_NAME"
 
 # ── Copy canonical template files ─────────────────────────────────────────
@@ -85,6 +92,9 @@ cp "$TEMPLATE_DIR/memory/BRIEF-TEMPLATE.md"   ./memory/BRIEF-TEMPLATE.md
 cp "$TEMPLATE_DIR/memory/CONTEXT-SCHEMA.md"   ./memory/CONTEXT-SCHEMA.md
 cp "$TEMPLATE_DIR/memory/DECISIONS-SCHEMA.md" ./memory/DECISIONS-SCHEMA.md
 cp "$TEMPLATE_DIR/memory/SESSIONS-SCHEMA.md"  ./memory/SESSIONS-SCHEMA.md
+cp "$TEMPLATE_DIR/.claude/skills/brief/SKILL.md"   ./.claude/skills/brief/SKILL.md
+cp "$TEMPLATE_DIR/.claude/skills/decide/SKILL.md"  ./.claude/skills/decide/SKILL.md
+cp "$TEMPLATE_DIR/.claude/skills/wrap-up/SKILL.md" ./.claude/skills/wrap-up/SKILL.md
 
 # Symlink — guard against re-run collision
 if [ ! -L CLAUDE.md ]; then
@@ -145,7 +155,7 @@ fi
 
 # Initial commit — per AGENTS.md git integration section.
 # Note: .claude/settings.local.json is intentionally excluded (local only).
-git add AGENTS.md CLAUDE.md HOW-TO-USE.md memory/
+git add AGENTS.md CLAUDE.md HOW-TO-USE.md memory/ .claude/skills/
 git commit -m "chore(memory): initial scaffold"
 
 # Disable the cleanup trap now that setup succeeded
@@ -161,4 +171,4 @@ echo "attribution disabled (empty strings). Edit or delete this file if you"
 echo "want Claude Code to append Co-Authored-By trailers to your commits."
 echo "This file is not committed to git — it is a personal preference."
 echo ""
-echo "Next: run the brief skill to fill out memory/BRIEF.md."
+echo "Next: open the project in Claude Code and run /brief to fill out memory/BRIEF.md."
