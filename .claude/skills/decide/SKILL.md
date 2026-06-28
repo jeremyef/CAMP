@@ -1,6 +1,7 @@
 ---
 name: decide
 description: Logs a project decision to memory/DECISIONS.md. Use when a choice has been reached and is ready to be logged — after deliberation, not at the start of it. Covers technical approaches, scope questions, tool/stack choices, or any other meaningful decision that should outlive this session. Also use when a previously Deferred item is being acted on. Do not trigger during open-ended discussion or exploration before a choice has been made.
+when: When a technical, architectural, or scope decision has been reached and should be logged for future sessions
 ---
 
 # decide

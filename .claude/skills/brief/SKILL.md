@@ -1,6 +1,7 @@
 ---
 name: brief
 description: Creates or revises memory/BRIEF.md through guided elicitation. Use for a brand-new project's first brief, when a project's scope or foundational direction genuinely changes (including phase transitions), or when invoked as a handoff from `decide` option (c). Covers both initial creation and all future revisions — this is the only skill that writes to BRIEF.md. Do not invoke for wording tweaks or cosmetic changes — those are PATCH bumps that still go through this skill but follow a shorter path.
+when: When the user wants to define or revise the project scope, start a new project brief, or transition to a new phase
 ---
 
 # brief

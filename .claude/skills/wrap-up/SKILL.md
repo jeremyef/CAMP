@@ -1,6 +1,7 @@
 ---
 name: wrap-up
 description: Closes out a working session — updates memory/CONTEXT.md and memory/SESSIONS.md. Use when the user indicates they're finishing for now, ending a session, or asks to wrap up, save progress, or sign off.
+when: When the user is ending a session, wants to save progress, or indicates they are done for now
 ---
 
 # wrap-up

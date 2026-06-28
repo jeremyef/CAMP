@@ -5,7 +5,7 @@ set -euo pipefail
 # CAMP: Context And Memory Protocol
 #
 # Usage:
-#   TEMPLATE_DIR=/path/to/your/templates ./project-init.sh <project-name>
+#   TEMPLATE_DIR=/path/to/your/templates ./project-init.sh <project-name> [--cursor]
 #
 # TEMPLATE_DIR must contain:
 #   AGENTS.md, HOW-TO-USE.md, BRIEF-TEMPLATE.md, CONTEXT-SCHEMA.md,
@@ -19,7 +19,23 @@ set -euo pipefail
 
 # ── Guards ────────────────────────────────────────────────────────────────
 
-PROJECT_NAME="${1:?Usage: project-init.sh <project-name>}"
+CURSOR=false
+POSITIONAL_ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --cursor) CURSOR=true ;;
+    --*) echo "Error: unknown flag '$arg'" >&2; exit 1 ;;
+    *) POSITIONAL_ARGS+=("$arg") ;;
+  esac
+done
+
+if [ ${#POSITIONAL_ARGS[@]} -eq 0 ]; then
+  echo "Usage: project-init.sh <project-name> [--cursor]" >&2
+  exit 1
+fi
+
+PROJECT_NAME="${POSITIONAL_ARGS[0]}"
 TEMPLATE_DIR="${TEMPLATE_DIR:?Set TEMPLATE_DIR to your canonical template files location}"
 
 # Prevent path traversal (e.g. ../../escape)
@@ -96,6 +112,19 @@ cp "$TEMPLATE_DIR/.claude/skills/brief/SKILL.md"   ./.claude/skills/brief/SKILL.
 cp "$TEMPLATE_DIR/.claude/skills/decide/SKILL.md"  ./.claude/skills/decide/SKILL.md
 cp "$TEMPLATE_DIR/.claude/skills/wrap-up/SKILL.md" ./.claude/skills/wrap-up/SKILL.md
 
+# ── Cursor skills (--cursor only) ─────────────────────────────────────────
+# Copies .claude/skills/ into .cursor/skills/ so /brief, /decide, /wrap-up
+# are invokable in Cursor's Agent chat as well as Claude Code.
+
+if [ "$CURSOR" = true ]; then
+  mkdir -p .cursor/skills/brief
+  mkdir -p .cursor/skills/decide
+  mkdir -p .cursor/skills/wrap-up
+  cp .claude/skills/brief/SKILL.md   .cursor/skills/brief/SKILL.md
+  cp .claude/skills/decide/SKILL.md  .cursor/skills/decide/SKILL.md
+  cp .claude/skills/wrap-up/SKILL.md .cursor/skills/wrap-up/SKILL.md
+fi
+
 # Symlink — guard against re-run collision
 if [ ! -L CLAUDE.md ]; then
   ln -s AGENTS.md CLAUDE.md
@@ -119,6 +148,14 @@ cat > .gitignore << 'GITIGNORE'
 # Local attribution preference — not project policy
 .claude/settings.local.json
 GITIGNORE
+
+if [ "$CURSOR" = true ]; then
+  cat >> .gitignore << 'GITIGNORE'
+
+# Cursor local settings — not project policy
+.cursor/settings.json
+GITIGNORE
+fi
 
 # ── Attribution setting ────────────────────────────────────────────────────
 # Claude Code appends "Generated with Claude Code" and a Co-Authored-By
@@ -162,7 +199,11 @@ fi
 
 # Initial commit — per AGENTS.md git integration section.
 # Note: .claude/settings.local.json is intentionally excluded (listed in .gitignore).
-git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/
+if [ "$CURSOR" = true ]; then
+  git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/
+else
+  git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/
+fi
 git commit -m "chore(memory): initial scaffold"
 
 # Disable the cleanup trap now that setup succeeded
@@ -178,4 +219,8 @@ echo "attribution disabled (empty strings). Edit or delete this file if you"
 echo "want Claude Code to append Co-Authored-By trailers to your commits."
 echo "This file is not committed to git — it is a personal preference."
 echo ""
-echo "Next: open the project in Claude Code and run /brief to fill out memory/BRIEF.md."
+if [ "$CURSOR" = true ]; then
+  echo "Cursor: .cursor/skills/ scaffolded — /brief, /decide, /wrap-up are available in Cursor's Agent chat."
+  echo ""
+fi
+echo "Next: open the project in Claude Code or Cursor and run /brief to fill out memory/BRIEF.md."
