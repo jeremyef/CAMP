@@ -113,6 +113,13 @@ echo "# See memory/DECISIONS-SCHEMA.md — content written by \`decide\` skill" 
 echo "# See memory/SESSIONS-SCHEMA.md — content written by \`wrap-up\` skill" \
   > memory/SESSIONS.md
 
+# ── Gitignore ─────────────────────────────────────────────────────────────
+
+cat > .gitignore << 'GITIGNORE'
+# Local attribution preference — not project policy
+.claude/settings.local.json
+GITIGNORE
+
 # ── Attribution setting ────────────────────────────────────────────────────
 # Claude Code appends "Generated with Claude Code" and a Co-Authored-By
 # trailer to every commit by default. This file lets you control that.
@@ -154,8 +161,8 @@ if [ ${#IGNORED[@]} -gt 0 ]; then
 fi
 
 # Initial commit — per AGENTS.md git integration section.
-# Note: .claude/settings.local.json is intentionally excluded (local only).
-git add AGENTS.md CLAUDE.md HOW-TO-USE.md memory/ .claude/skills/
+# Note: .claude/settings.local.json is intentionally excluded (listed in .gitignore).
+git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/
 git commit -m "chore(memory): initial scaffold"
 
 # Disable the cleanup trap now that setup succeeded

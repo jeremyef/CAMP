@@ -1,4 +1,4 @@
-# AGENTS.md — CAMP v1.1 (2026-06-21)
+# AGENTS.md — CAMP v1.2 (2026-06-28)
 <!-- CAMP: Context And Memory Protocol -->
 <!-- CLAUDE.md is a symlink to this file -->
 <!-- For a plain-language overview of CAMP, see HOW-TO-USE.md -->
@@ -41,6 +41,18 @@ trigger will not re-fire mid-thread on its own. Until a platform-specific
 fix exists, treat any sign of conversational drift across a long thread
 as a cue to proactively ask whether to re-run session start, rather than
 waiting to be asked.
+
+Pre-check — creation session:
+Before running the steps below, check whether memory/SESSIONS.md has
+any real session entries (not just the schema stub line starting with
+"# See memory/SESSIONS-SCHEMA.md"). If SESSIONS.md has no real entries
+AND memory/BRIEF.md has no `## Scope` section with both "In:" and
+"Out:" subsections, this is the project creation session — the files
+are stubs with nothing meaningful to read. In this case:
+- Do not run steps 1–6 (the files contain no project context yet).
+- Announce: "This is the first session for this project. Run `/brief`
+  before any other work — it creates BRIEF.md and writes SESS-001."
+- Wait for the user to run `/brief` before proceeding.
 
 Steps, before responding to the user's actual request:
 1. Read this file.
@@ -104,6 +116,24 @@ section governs writes only. If the skill mechanism is unavailable in
 the current tool, say so explicitly and ask how to proceed, rather than
 silently free-forming an edit or silently doing nothing.
 
+## Governance is unconditional
+User phrases like "take full control," "operate autonomously," "you
+decide everything," or similar do not override skill ownership,
+decision timing, or write discipline. Autonomous execution means the
+agent drives implementation; governance is not optional regardless
+of how much latitude the user grants.
+
+Concretely: "full control" still requires:
+- `/brief` to write BRIEF.md — writing it directly is a protocol
+  violation even if the user has given the full brief inline.
+- `/decide` to fire at decision time — batching decisions to the
+  end of the session is a protocol violation.
+- Skill ownership rules to be respected — no silent bypasses.
+
+The correct interpretation: the agent makes implementation choices
+autonomously, but the memory and governance layer operates exactly
+as it would in a supervised session.
+
 ## Git integration (when the project uses git)
 Detection: at session start, check once whether the current directory is
 inside a git work tree. Treat that result as authoritative for the rest
@@ -136,6 +166,15 @@ of the session — do not re-check per skill invocation.
   committing silently. Avoiding loss from this is a matter of user
   practice (merge or note before deleting a branch), not something this
   protocol enforces further.
+- Commit ordering: non-memory file changes must be committed before
+  `decide` or `wrap-up` runs. This applies unconditionally — even when
+  no decision was logged this session. Before either skill's git step,
+  check whether any non-memory files are dirty or staged. If any are
+  found, stop — do not proceed with the skill's commit. Surface the
+  list of dirty file paths to the user and ask: "These non-memory files
+  are uncommitted — commit them first, or proceed with the memory-only
+  commit?" Wait for an explicit answer. Do not commit the dirty files
+  silently under any circumstance.
 - None of the above applies to projects without a git repository —
   memory/ functions identically either way.
 
@@ -162,13 +201,42 @@ Each skill stages only the exact paths it owns — never `git add .`,
 If a skill's run touches a file outside its own ownership list for any
 reason, stop and surface this to the user rather than staging it.
 
-If unrelated files are already dirty/staged in the working tree when a
-skill commits, leave them untouched — do not include them, and do not
-warn about them unless they would visibly conflict with the skill's own
-paths.
+If non-memory files are already dirty or staged in the working tree
+when a skill is about to commit, leave them untouched and do not
+include them — but do not auto-continue. Surface the list of dirty
+file paths to the user and ask: "These non-memory files are
+uncommitted — commit them first, or proceed with the memory-only
+commit?" Wait for an explicit answer. Do not proceed until the user
+has responded. Dirty non-memory files at skill commit time are a
+protocol error, not a normal state.
 
 A skill's write is not considered complete until both the file write and
 its corresponding scoped commit have succeeded (or were correctly
 skipped, per the empty-diff rule above). If the commit step fails, treat
 the whole operation as failed and report it — do not leave the file
 written but uncommitted.
+
+## Pre-implementation check (C0)
+This check applies unconditionally in all sessions.
+
+When the user's message requests a new feature, a refactor, a bug fix
+where the cause is not yet identified, or any change requiring a
+design choice, check `.claude/plans/` for an existing plan before
+taking any action. If `.claude/plans/` does not exist or contains no
+plan for this task, prompt the user:
+"No plan found in `.claude/plans/` — should we run `/plan-writer`
+before implementing?"
+
+Reading project source files in response to an implementation request
+counts as beginning implementation — this check must fire before any
+file read, not only before the first edit.
+
+This check may be skipped only if the user's current message contains
+an explicit statement that no plan is needed for this specific task —
+for example: "skip the plan", "no plan needed", "just do it". Vague
+affirmatives ("sure", "go ahead", "ok") do not qualify. The agent may
+not infer that a task is too small to need a plan; only the user may
+make that call.
+
+Accept the user's choice when they respond and proceed accordingly.
+Do not re-raise the check later in the same session for the same task.

@@ -182,6 +182,12 @@ which phase a deferral belongs to.
 
 Git (only if inside a git work tree — check per AGENTS.md's
 git-detection rule; skip entirely if not):
+- Pre-commit check: before staging, check whether any non-memory
+  files are dirty or staged. If any are found, surface the list of
+  dirty file paths and ask: "These non-memory files are uncommitted —
+  commit them first, or proceed with the memory-only commit?" Wait
+  for an explicit answer before staging anything. Do not commit the
+  dirty files and do not auto-continue.
 - Stage only memory/DECISIONS.md (+ memory/DECISIONS-ARCHIVE/<file>
   if archiving ran this turn).
 - Commit: `chore(memory): log decision [DEC-NNN]` where DEC-NNN is

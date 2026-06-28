@@ -26,6 +26,12 @@ decisions before wrapping up, or proceed without them?" Accept
 whichever they choose — document the outcome in the SESSIONS.md
 Summary either way.
 
+Uncommitted code check: after the decisions check, check whether any
+non-memory files are dirty or staged in the working tree. If any are
+found, surface the list of dirty file paths and ask: "These
+non-memory files are uncommitted — commit them first, or proceed with
+wrap-up?" Wait for an explicit answer. Do not auto-continue.
+
 ## Session boundary
 A SESSIONS.md entry covers everything from the previous `wrap-up`
 invocation (or session start, if this is the first wrap-up) to this
