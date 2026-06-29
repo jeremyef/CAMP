@@ -219,11 +219,10 @@ written but uncommitted.
 ## Pre-implementation check (C0)
 This check applies unconditionally in all sessions.
 
-When the user's message requests a new feature, a refactor, a bug fix
-where the cause is not yet identified, or any change requiring a
-design choice, check `.claude/plans/` for an existing plan before
-taking any action. If `.claude/plans/` does not exist or contains no
-plan for this task, prompt the user:
+When the user's message requests a new feature, a refactor, a bug fix,
+or any change requiring a design choice, check `.claude/plans/` for an
+existing plan before taking any action. If `.claude/plans/` does not
+exist or contains no plan for this task, prompt the user:
 "No plan found in `.claude/plans/` — should we run `/plan-writer`
 before implementing?"
 
@@ -231,12 +230,20 @@ Reading project source files in response to an implementation request
 counts as beginning implementation — this check must fire before any
 file read, not only before the first edit.
 
-This check may be skipped only if the user's current message contains
-an explicit statement that no plan is needed for this specific task —
-for example: "skip the plan", "no plan needed", "just do it". Vague
-affirmatives ("sure", "go ahead", "ok") do not qualify. The agent may
-not infer that a task is too small to need a plan; only the user may
-make that call.
+Bug reports and diagnosis: if the user reports a bug, unexpected
+behavior, or error of any kind, the agent may diagnose (reading logs,
+running commands) before C0 fires. C0 fires at the moment the agent
+moves from diagnosis to implementing a fix — not only when the user
+explicitly requests a fix. The agent may not treat "the cause is now
+known" as grounds to skip C0. Identification of the cause is not an
+approved plan, regardless of how obvious the fix appears.
+
+This check may be skipped only if the user's triggering message or
+any direct reply to C0's prompt contains an explicit statement that
+no plan is needed for this specific task — for example: "skip the
+plan", "no plan needed", "just do it". Vague affirmatives ("sure",
+"go ahead", "ok") do not qualify. The agent may not infer that a task
+is too small to need a plan; only the user may make that call.
 
 Accept the user's choice when they respond and proceed accordingly.
 Do not re-raise the check later in the same session for the same task.
