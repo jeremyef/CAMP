@@ -5,7 +5,7 @@ of working across multiple AI sessions: the model starts fresh every time, and
 without a structured way to carry context forward, you end up re-explaining
 decisions, relitigating settled questions, and watching scope quietly drift.
 
-CAMP uses four Markdown files to hold a project's memory and three skills
+CAMP uses four Markdown files to hold a project's memory and four skills
 to keep them updated reliably. It works across Claude Code, Cursor, and
 Claude.ai, and it doesn't care whether your project involves code, writing,
 research, or planning.
@@ -26,9 +26,10 @@ research, or planning.
 | .claude/skills/brief/SKILL.md | Creates and revises BRIEF.md through guided elicitation. |
 | .claude/skills/decide/SKILL.md | Logs decisions to DECISIONS.md after deliberation. |
 | .claude/skills/wrap-up/SKILL.md | Closes sessions — updates CONTEXT.md and SESSIONS.md. |
+| .claude/skills/plan-writer/SKILL.md | Writes a structured plan file before implementation begins. |
 
 ```
-memory-system/                       ← this repo
+CAMP/                                ← this repo
 ├── README.md
 ├── AGENTS.md
 ├── HOW-TO-USE.md
@@ -44,7 +45,9 @@ memory-system/                       ← this repo
         │   └── SKILL.md
         ├── decide/
         │   └── SKILL.md
-        └── wrap-up/
+        ├── wrap-up/
+        │   └── SKILL.md
+        └── plan-writer/
             └── SKILL.md
 ```
 
@@ -57,14 +60,17 @@ my-project/
 ├── AGENTS.md                        ← protocol (from this repo)
 ├── CLAUDE.md                        → symlink to AGENTS.md
 ├── HOW-TO-USE.md                    ← day-to-day guide (from this repo)
+├── .gitignore                       ← excludes .claude/settings.local.json
 ├── .claude/
 │   ├── settings.local.json          ← attribution setting (not committed)
-│   └── skills/                      ← install skills here (see below)
+│   └── skills/
 │       ├── brief/
 │       │   └── SKILL.md
 │       ├── decide/
 │       │   └── SKILL.md
-│       └── wrap-up/
+│       ├── wrap-up/
+│       │   └── SKILL.md
+│       └── plan-writer/
 │           └── SKILL.md
 └── memory/
     ├── BRIEF.md                     ← filled by `brief` skill
@@ -79,6 +85,22 @@ my-project/
     └── SESSIONS-ARCHIVE/
 ```
 
+With `--cursor`, the init script also scaffolds:
+
+```
+my-project/
+└── .cursor/
+    └── skills/
+        ├── brief/
+        │   └── SKILL.md
+        ├── decide/
+        │   └── SKILL.md
+        ├── wrap-up/
+        │   └── SKILL.md
+        └── plan-writer/
+            └── SKILL.md
+```
+
 ---
 
 ## Setup
@@ -86,8 +108,8 @@ my-project/
 ### 1. Clone this repo as your templates directory
 
 ```bash
-git clone <this-repo> ~/templates/memory-system
-export TEMPLATE_DIR=~/templates/memory-system
+git clone <this-repo> ~/CAMP
+export TEMPLATE_DIR=~/CAMP
 ```
 
 > Add the `export` line to `~/.zshrc` or `~/.bashrc` to make it permanent.
@@ -95,33 +117,24 @@ export TEMPLATE_DIR=~/templates/memory-system
 ### 2. Start a new project
 
 ```bash
-./project-init.sh my-project-name
+TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh my-project-name
 ```
 
-> Run from the root of this repo, with `TEMPLATE_DIR` set. The script
-> validates your environment, copies template files, creates the git repo
-> and initial commit, and writes `.claude/settings.local.json` with
-> attribution disabled. Edit that file if you want Claude Code to append
-> Co-Authored-By trailers to commits.
+> Run with `TEMPLATE_DIR` set. The script validates your environment, copies
+> template files and skills, creates the git repo and initial commit, and writes
+> `.claude/settings.local.json` with attribution disabled. Edit that file if you
+> want Claude Code to append Co-Authored-By trailers to commits.
 
-### 3. Install skills
-
-Skills need to be in `.claude/skills/` inside the new project. Copy them
-from this repo:
+For Cursor support, add the `--cursor` flag:
 
 ```bash
-cd my-project-name
-mkdir -p .claude/skills/brief .claude/skills/decide .claude/skills/wrap-up
-
-cp ../memory-system/.claude/skills/brief/SKILL.md   .claude/skills/brief/SKILL.md
-cp ../memory-system/.claude/skills/decide/SKILL.md  .claude/skills/decide/SKILL.md
-cp ../memory-system/.claude/skills/wrap-up/SKILL.md .claude/skills/wrap-up/SKILL.md
+TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh my-project-name --cursor
 ```
 
-> Alternatively, install skills globally for use across all projects:
-> `~/.claude/skills/` — Claude Code and Cursor both discover skills there.
+> Also scaffolds `.cursor/skills/` so `/brief`, `/decide`, `/wrap-up`, and
+> `/plan-writer` are available in Cursor's Agent chat.
 
-### 4. Run `brief` to fill out BRIEF.md
+### 3. Run `brief` to fill out BRIEF.md
 
 Open the project in Claude Code or Cursor. The session-start protocol fires
 automatically. Then invoke the `brief` skill — it guides you through
@@ -139,8 +152,9 @@ CLAUDE.md (symlinked to AGENTS.md) is read natively. Skills in
 filesystem — skills read and write them directly. Git operations run
 automatically per the staging and commit rules in AGENTS.md.
 
-Skills can be invoked via slash command (`/brief`, `/decide`, `/wrap-up`)
-or autonomously when Claude matches the description to the conversation.
+Skills can be invoked via slash command (`/brief`, `/decide`, `/wrap-up`,
+`/plan-writer`) or autonomously when Claude matches the description to the
+conversation.
 
 To disable a skill temporarily without deleting it:
 ```bash
@@ -155,6 +169,9 @@ Cursor reads AGENTS.md natively and auto-discovers skills in `.claude/skills/`
 alongside its own `.cursor/skills/`. No separate skill installation is needed
 if you're already set up for Claude Code — skills installed in `.claude/skills/`
 are shared between both tools automatically.
+
+Use `--cursor` at init time to also scaffold `.cursor/skills/` explicitly,
+which enables Cursor's auto-discovery `when:` field on each skill.
 
 For Cursor-specific always-on rules beyond AGENTS.md, use `.cursor/rules/*.mdc`
 files. The single `.cursorrules` file at the project root is deprecated but
@@ -182,12 +199,13 @@ your local files manually. Log any decisions reached in claude.ai via
 
 ```bash
 # Package each skill as a ZIP with the folder at its root
-mkdir -p /tmp/brief  && cp .claude/skills/brief/SKILL.md  /tmp/brief/SKILL.md
-mkdir -p /tmp/decide && cp .claude/skills/decide/SKILL.md /tmp/decide/SKILL.md
-mkdir -p /tmp/wrap-up && cp .claude/skills/wrap-up/SKILL.md /tmp/wrap-up/SKILL.md
+mkdir -p /tmp/brief      && cp .claude/skills/brief/SKILL.md      /tmp/brief/SKILL.md
+mkdir -p /tmp/decide     && cp .claude/skills/decide/SKILL.md     /tmp/decide/SKILL.md
+mkdir -p /tmp/wrap-up    && cp .claude/skills/wrap-up/SKILL.md    /tmp/wrap-up/SKILL.md
+mkdir -p /tmp/plan-writer && cp .claude/skills/plan-writer/SKILL.md /tmp/plan-writer/SKILL.md
 
 cd /tmp
-zip -r brief.zip brief/ && zip -r decide.zip decide/ && zip -r wrap-up.zip wrap-up/
+zip -r brief.zip brief/ && zip -r decide.zip decide/ && zip -r wrap-up.zip wrap-up/ && zip -r plan-writer.zip plan-writer/
 ```
 
 > Upload each ZIP via Settings > Customize > Skills > "+" > "Create skill."
@@ -278,7 +296,7 @@ implementation sessions where work is more heads-down.
 ## Further reading
 
 - **HOW-TO-USE.md** — copied into every project. Covers the four files,
-  the three skills, typical session flow, phase transitions, and tool
+  the four skills, typical session flow, phase transitions, and tool
   choice guidance. Start here once a project is running.
 - **memory/\*-SCHEMA.md** — the exact format spec for each memory file.
   Reference when something looks wrong or you want to understand a
