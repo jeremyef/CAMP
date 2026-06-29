@@ -5,7 +5,7 @@ set -euo pipefail
 # CAMP: Context And Memory Protocol
 #
 # Usage:
-#   TEMPLATE_DIR=/path/to/your/templates ./project-init.sh <project-name> [--cursor]
+#   TEMPLATE_DIR=/path/to/your/templates ./project-init.sh <project-name> [--remote=<url>] [--cursor]
 #
 # TEMPLATE_DIR must contain:
 #   AGENTS.md, HOW-TO-USE.md, BRIEF-TEMPLATE.md, CONTEXT-SCHEMA.md,
@@ -20,18 +20,21 @@ set -euo pipefail
 # ── Guards ────────────────────────────────────────────────────────────────
 
 CURSOR=false
+REMOTE_URL=""
 POSITIONAL_ARGS=()
 
 for arg in "$@"; do
   case "$arg" in
     --cursor) CURSOR=true ;;
+    --remote=*) REMOTE_URL="${arg#--remote=}" ;;
+    --remote) echo "Error: --remote requires a value, e.g. --remote=https://github.com/user/repo.git" >&2; exit 1 ;;
     --*) echo "Error: unknown flag '$arg'" >&2; exit 1 ;;
     *) POSITIONAL_ARGS+=("$arg") ;;
   esac
 done
 
 if [ ${#POSITIONAL_ARGS[@]} -eq 0 ]; then
-  echo "Usage: project-init.sh <project-name> [--cursor]" >&2
+  echo "Usage: project-init.sh <project-name> [--remote=<url>] [--cursor]" >&2
   exit 1
 fi
 
@@ -53,6 +56,15 @@ fi
 if ! command -v git &>/dev/null; then
   echo "Error: git is not installed or not in PATH." >&2
   exit 1
+fi
+
+# Verify the remote is reachable before touching the filesystem
+if [ -n "$REMOTE_URL" ]; then
+  if ! GIT_TERMINAL_PROMPT=0 git ls-remote "$REMOTE_URL" HEAD &>/dev/null 2>&1; then
+    echo "Error: remote '$REMOTE_URL' is not reachable." >&2
+    echo "Verify the URL and your git credentials, then re-run." >&2
+    exit 1
+  fi
 fi
 
 # Preflight — verify all required template files exist before touching
@@ -159,6 +171,7 @@ if [ "$CURSOR" = true ]; then
 
 # Cursor local settings — not project policy
 .cursor/settings.json
+.cursor/cli-config.json
 GITIGNORE
 fi
 
@@ -177,6 +190,17 @@ cat > .claude/settings.local.json << 'JSON'
   }
 }
 JSON
+
+if [ "$CURSOR" = true ]; then
+  cat > .cursor/cli-config.json << 'JSON'
+{
+  "attribution": {
+    "attributeCommitsToAgent": false,
+    "attributePRsToAgent": false
+  }
+}
+JSON
+fi
 
 # ── Git setup ──────────────────────────────────────────────────────────────
 
@@ -214,18 +238,26 @@ git commit -m "chore(memory): initial scaffold"
 # Disable the cleanup trap now that setup succeeded
 trap - ERR
 
+# ── Remote ─────────────────────────────────────────────────────────────────
+
+if [ -n "$REMOTE_URL" ]; then
+  git remote add origin "$REMOTE_URL"
+fi
+
 # ── Done ───────────────────────────────────────────────────────────────────
 
 echo ""
 echo "CAMP project '$PROJECT_NAME' scaffolded successfully."
 echo ""
-echo "Attribution setting: .claude/settings.local.json has been created with"
-echo "attribution disabled (empty strings). Edit or delete this file if you"
-echo "want Claude Code to append Co-Authored-By trailers to your commits."
-echo "This file is not committed to git — it is a personal preference."
+echo "Attribution: .claude/settings.local.json sets attribution to disabled."
+echo "Edit or delete this file to change that preference (not committed to git)."
 echo ""
 if [ "$CURSOR" = true ]; then
-  echo "Cursor: .cursor/skills/ scaffolded — /brief, /decide, /wrap-up are available in Cursor's Agent chat."
+  echo "Cursor: .cursor/skills/ scaffolded — /brief, /decide, /wrap-up, /plan-writer available."
   echo ""
 fi
-echo "Next: open the project in Claude Code or Cursor and run /brief to fill out memory/BRIEF.md."
+if [ -n "$REMOTE_URL" ]; then
+  echo "Remote: origin → $REMOTE_URL"
+  echo ""
+fi
+echo "Next: open the project in Claude Code or Cursor and run /brief."
