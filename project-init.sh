@@ -67,6 +67,7 @@ REQUIRED_TEMPLATES=(
   ".claude/skills/brief/SKILL.md"
   ".claude/skills/decide/SKILL.md"
   ".claude/skills/wrap-up/SKILL.md"
+  ".claude/skills/plan-writer/SKILL.md"
 )
 
 MISSING=()
@@ -98,6 +99,7 @@ mkdir -p "$PROJECT_NAME"/memory/SESSIONS-ARCHIVE
 mkdir -p "$PROJECT_NAME"/.claude/skills/brief
 mkdir -p "$PROJECT_NAME"/.claude/skills/decide
 mkdir -p "$PROJECT_NAME"/.claude/skills/wrap-up
+mkdir -p "$PROJECT_NAME"/.claude/skills/plan-writer
 cd "$PROJECT_NAME"
 
 # ── Copy canonical template files ─────────────────────────────────────────
@@ -108,9 +110,10 @@ cp "$TEMPLATE_DIR/memory/BRIEF-TEMPLATE.md"   ./memory/BRIEF-TEMPLATE.md
 cp "$TEMPLATE_DIR/memory/CONTEXT-SCHEMA.md"   ./memory/CONTEXT-SCHEMA.md
 cp "$TEMPLATE_DIR/memory/DECISIONS-SCHEMA.md" ./memory/DECISIONS-SCHEMA.md
 cp "$TEMPLATE_DIR/memory/SESSIONS-SCHEMA.md"  ./memory/SESSIONS-SCHEMA.md
-cp "$TEMPLATE_DIR/.claude/skills/brief/SKILL.md"   ./.claude/skills/brief/SKILL.md
-cp "$TEMPLATE_DIR/.claude/skills/decide/SKILL.md"  ./.claude/skills/decide/SKILL.md
-cp "$TEMPLATE_DIR/.claude/skills/wrap-up/SKILL.md" ./.claude/skills/wrap-up/SKILL.md
+cp "$TEMPLATE_DIR/.claude/skills/brief/SKILL.md"       ./.claude/skills/brief/SKILL.md
+cp "$TEMPLATE_DIR/.claude/skills/decide/SKILL.md"      ./.claude/skills/decide/SKILL.md
+cp "$TEMPLATE_DIR/.claude/skills/wrap-up/SKILL.md"     ./.claude/skills/wrap-up/SKILL.md
+cp "$TEMPLATE_DIR/.claude/skills/plan-writer/SKILL.md" ./.claude/skills/plan-writer/SKILL.md
 
 # ── Cursor skills (--cursor only) ─────────────────────────────────────────
 # Copies .claude/skills/ into .cursor/skills/ so /brief, /decide, /wrap-up
@@ -120,9 +123,11 @@ if [ "$CURSOR" = true ]; then
   mkdir -p .cursor/skills/brief
   mkdir -p .cursor/skills/decide
   mkdir -p .cursor/skills/wrap-up
-  cp .claude/skills/brief/SKILL.md   .cursor/skills/brief/SKILL.md
-  cp .claude/skills/decide/SKILL.md  .cursor/skills/decide/SKILL.md
-  cp .claude/skills/wrap-up/SKILL.md .cursor/skills/wrap-up/SKILL.md
+  mkdir -p .cursor/skills/plan-writer
+  cp .claude/skills/brief/SKILL.md       .cursor/skills/brief/SKILL.md
+  cp .claude/skills/decide/SKILL.md      .cursor/skills/decide/SKILL.md
+  cp .claude/skills/wrap-up/SKILL.md     .cursor/skills/wrap-up/SKILL.md
+  cp .claude/skills/plan-writer/SKILL.md .cursor/skills/plan-writer/SKILL.md
 fi
 
 # Symlink — guard against re-run collision
