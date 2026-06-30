@@ -27,9 +27,20 @@ decisions before wrapping up, or proceed without them?" Accept
 whichever they choose — document the outcome in the SESSIONS.md
 Summary either way.
 
-Uncommitted code check: after the decisions check, check whether any
-non-memory files are dirty or staged in the working tree. If any are
-found, surface the list of dirty file paths and ask: "These
+Untracked plan file check: after the decisions check, if `.claude/plans/`
+exists run `git ls-files --others .claude/plans/` to find untracked
+plan files. If any are found, surface them as a protocol error —
+distinct from ordinary uncommitted files:
+"These plan files are untracked and have not been formally approved:
+  <list>
+Commit each with `chore(plan): <slug>` before proceeding. An untracked
+plan is not an approved plan (see plan-writer step 5)."
+Do not bundle this with the general dirty files question below — it
+requires its own response and commit before wrap-up continues.
+
+Uncommitted code check: after the untracked plan check, check whether
+any non-memory files are dirty or staged in the working tree. If any
+are found, surface the list of dirty file paths and ask: "These
 non-memory files are uncommitted — commit them first, or proceed with
 wrap-up?" Wait for an explicit answer. Do not auto-continue.
 
