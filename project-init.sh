@@ -10,8 +10,8 @@ set -euo pipefail
 # TEMPLATE_DIR must contain:
 #   AGENTS.md, HOW-TO-USE.md, BRIEF-TEMPLATE.md, CONTEXT-SCHEMA.md,
 #   DECISIONS-SCHEMA.md, SESSIONS-SCHEMA.md,
-#   .claude/skills/brief/SKILL.md, .claude/skills/decide/SKILL.md,
-#   .claude/skills/wrap-up/SKILL.md
+#   skills/brief/SKILL.md, skills/decide/SKILL.md,
+#   skills/wrap-up/SKILL.md, skills/plan-writer/SKILL.md
 #
 # This script is deterministic — it copies from one canonical source so
 # templates never drift out of sync between projects. No inference happens
@@ -76,10 +76,10 @@ REQUIRED_TEMPLATES=(
   "memory/CONTEXT-SCHEMA.md"
   "memory/DECISIONS-SCHEMA.md"
   "memory/SESSIONS-SCHEMA.md"
-  ".claude/skills/brief/SKILL.md"
-  ".claude/skills/decide/SKILL.md"
-  ".claude/skills/wrap-up/SKILL.md"
-  ".claude/skills/plan-writer/SKILL.md"
+  "skills/brief/SKILL.md"
+  "skills/decide/SKILL.md"
+  "skills/wrap-up/SKILL.md"
+  "skills/plan-writer/SKILL.md"
 )
 
 MISSING=()
@@ -108,10 +108,10 @@ trap cleanup ERR
 
 mkdir -p "$PROJECT_NAME"/memory/DECISIONS-ARCHIVE
 mkdir -p "$PROJECT_NAME"/memory/SESSIONS-ARCHIVE
-mkdir -p "$PROJECT_NAME"/.claude/skills/brief
-mkdir -p "$PROJECT_NAME"/.claude/skills/decide
-mkdir -p "$PROJECT_NAME"/.claude/skills/wrap-up
-mkdir -p "$PROJECT_NAME"/.claude/skills/plan-writer
+for skill in brief decide wrap-up plan-writer; do
+  mkdir -p "$PROJECT_NAME"/.claude/skills/$skill
+  mkdir -p "$PROJECT_NAME"/.cursor/skills/$skill
+done
 cd "$PROJECT_NAME"
 
 # ── Copy canonical template files ─────────────────────────────────────────
@@ -122,25 +122,11 @@ cp "$TEMPLATE_DIR/memory/BRIEF-TEMPLATE.md"   ./memory/BRIEF-TEMPLATE.md
 cp "$TEMPLATE_DIR/memory/CONTEXT-SCHEMA.md"   ./memory/CONTEXT-SCHEMA.md
 cp "$TEMPLATE_DIR/memory/DECISIONS-SCHEMA.md" ./memory/DECISIONS-SCHEMA.md
 cp "$TEMPLATE_DIR/memory/SESSIONS-SCHEMA.md"  ./memory/SESSIONS-SCHEMA.md
-cp "$TEMPLATE_DIR/.claude/skills/brief/SKILL.md"       ./.claude/skills/brief/SKILL.md
-cp "$TEMPLATE_DIR/.claude/skills/decide/SKILL.md"      ./.claude/skills/decide/SKILL.md
-cp "$TEMPLATE_DIR/.claude/skills/wrap-up/SKILL.md"     ./.claude/skills/wrap-up/SKILL.md
-cp "$TEMPLATE_DIR/.claude/skills/plan-writer/SKILL.md" ./.claude/skills/plan-writer/SKILL.md
 
-# ── Cursor skills (--cursor only) ─────────────────────────────────────────
-# Copies .claude/skills/ into .cursor/skills/ so /brief, /decide, /wrap-up
-# are invokable in Cursor's Agent chat as well as Claude Code.
-
-if [ "$CURSOR" = true ]; then
-  mkdir -p .cursor/skills/brief
-  mkdir -p .cursor/skills/decide
-  mkdir -p .cursor/skills/wrap-up
-  mkdir -p .cursor/skills/plan-writer
-  cp .claude/skills/brief/SKILL.md       .cursor/skills/brief/SKILL.md
-  cp .claude/skills/decide/SKILL.md      .cursor/skills/decide/SKILL.md
-  cp .claude/skills/wrap-up/SKILL.md     .cursor/skills/wrap-up/SKILL.md
-  cp .claude/skills/plan-writer/SKILL.md .cursor/skills/plan-writer/SKILL.md
-fi
+for skill in brief decide wrap-up plan-writer; do
+  cp "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.claude/skills/$skill/SKILL.md"
+  cp "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.cursor/skills/$skill/SKILL.md"
+done
 
 # Symlink — guard against re-run collision
 if [ ! -L CLAUDE.md ]; then
@@ -228,15 +214,25 @@ fi
 
 # Initial commit — per AGENTS.md git integration section.
 # Note: .claude/settings.local.json is intentionally excluded (listed in .gitignore).
-if [ "$CURSOR" = true ]; then
-  git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/
-else
-  git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/
-fi
+git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/
 git commit -m "chore(memory): initial scaffold"
 
 # Disable the cleanup trap now that setup succeeded
 trap - ERR
+
+# ── Register project in template registry ─────────────────────────────────
+
+REGISTRY="$TEMPLATE_DIR/projects.txt"
+PROJECT_ABS="$(pwd)"
+if [ -f "$REGISTRY" ]; then
+  if ! grep -qxF "$PROJECT_ABS" "$REGISTRY"; then
+    echo "$PROJECT_ABS" >> "$REGISTRY"
+    echo "Registered in $(basename "$TEMPLATE_DIR")/projects.txt"
+  fi
+else
+  echo "$PROJECT_ABS" > "$REGISTRY"
+  echo "Created $(basename "$TEMPLATE_DIR")/projects.txt and registered project."
+fi
 
 # ── Remote ─────────────────────────────────────────────────────────────────
 
@@ -253,7 +249,7 @@ echo "Attribution: .claude/settings.local.json sets attribution to disabled."
 echo "Edit or delete this file to change that preference (not committed to git)."
 echo ""
 if [ "$CURSOR" = true ]; then
-  echo "Cursor: .cursor/skills/ scaffolded — /brief, /decide, /wrap-up, /plan-writer available."
+  echo "Cursor: .cursor/settings.json and attribution config written."
   echo ""
 fi
 if [ -n "$REMOTE_URL" ]; then

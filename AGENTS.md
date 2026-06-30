@@ -220,10 +220,22 @@ written but uncommitted.
 This check applies unconditionally in all sessions.
 
 When the user's message requests a new feature, a refactor, a bug fix,
-or any change requiring a design choice, check `.claude/plans/` for an
-existing plan before taking any action. If `.claude/plans/` does not
-exist or contains no plan for this task, prompt the user:
-"No plan found in `.claude/plans/` — should we run `/plan-writer`
+or any change requiring a design choice, detect the plans directory first:
+
+```bash
+if [ -n "${CLAUDECODE:-}" ] || [ -n "${CLAUDE_CODE_CHILD_SESSION:-}" ]; then
+  echo ".claude/plans"
+elif [ -n "${CURSOR_AGENT:-}" ]; then
+  echo ".cursor/plans"
+else
+  echo ".claude/plans"
+fi
+```
+
+Use the output as `<plans-dir>`. Check `<plans-dir>` for an existing plan
+before taking any action. If `<plans-dir>` does not exist or contains no
+plan for this task, prompt the user:
+"No plan found in `<plans-dir>` — should we run `/plan-writer`
 before implementing?"
 
 Reading project source files in response to an implementation request

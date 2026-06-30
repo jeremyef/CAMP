@@ -1,0 +1,7 @@
+# projects.txt — machine-specific registry of projects using this template.
+# Copy this file to projects.txt and fill in your absolute project paths.
+# projects.txt is gitignored — each machine maintains its own list.
+# Blank lines and lines starting with # are ignored.
+#
+# /home/youruser/projects/my-project
+# /home/youruser/projects/another-project
