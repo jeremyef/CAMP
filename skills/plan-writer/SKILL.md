@@ -24,19 +24,15 @@ Run this before writing anything:
 
 ```bash
 if [ -n "${CLAUDECODE:-}" ] || [ -n "${CLAUDE_CODE_CHILD_SESSION:-}" ]; then
-  echo "claude-code"
+  echo ".claude/plans"
 elif [ -n "${CURSOR_AGENT:-}" ]; then
-  echo "cursor"
+  echo ".cursor/plans"
 else
-  echo "other"
+  echo ".claude/plans"
 fi
 ```
 
-- Output is `claude-code` → running inside Claude Code (`CLAUDECODE` or `CLAUDE_CODE_CHILD_SESSION` is set). Plans directory: `.claude/plans/`
-- Output is `cursor` → running inside Cursor (`CURSOR_AGENT` is set, neither `CLAUDECODE` nor `CLAUDE_CODE_CHILD_SESSION` is set). Plans directory: `.cursor/plans/`
-- Output is `other` → unknown tool. Default to `.claude/plans/`
-
-All subsequent references to `<plans-dir>` mean whichever path this step resolves to. Create the directory if it doesn't exist yet.
+The output is the plans directory path. All subsequent references to `<plans-dir>` mean whichever path this step resolves to. Create the directory if it doesn't exist yet.
 
 ### 1. Research before writing anything
 
