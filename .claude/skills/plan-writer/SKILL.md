@@ -18,13 +18,33 @@ Use this for anything where getting the approach wrong would be expensive to unw
 
 ## Workflow
 
+### 0. Detect the plans directory
+
+Run this before writing anything:
+
+```bash
+if [ -n "${CLAUDECODE:-}" ] || [ -n "${CLAUDE_CODE_CHILD_SESSION:-}" ]; then
+  echo "claude-code"
+elif [ -n "${CURSOR_AGENT:-}" ]; then
+  echo "cursor"
+else
+  echo "other"
+fi
+```
+
+- Output is `claude-code` → running inside Claude Code (`CLAUDECODE` or `CLAUDE_CODE_CHILD_SESSION` is set). Plans directory: `.claude/plans/`
+- Output is `cursor` → running inside Cursor (`CURSOR_AGENT` is set, neither `CLAUDECODE` nor `CLAUDE_CODE_CHILD_SESSION` is set). Plans directory: `.cursor/plans/`
+- Output is `other` → unknown tool. Default to `.claude/plans/`
+
+All subsequent references to `<plans-dir>` mean whichever path this step resolves to. Create the directory if it doesn't exist yet.
+
 ### 1. Research before writing anything
 
 Before drafting the plan, actually read the relevant files, search for related code, and understand the current structure — the same exploration Plan Mode already does. The plan is only as good as the research behind it; don't fill in the "Why" or "Files affected" sections with guesses.
 
 ### 2. Write the plan file
 
-Create the file at `.claude/plans/<YYYY-MM-DD-HHMM>-<kebab-case-task-slug>.md` (create the `.claude/plans/` directory if it doesn't exist yet). Use the actual current date and time — pull it from the system clock rather than guessing — and 24-hour `HHMM` so filenames stay both unique and chronologically sortable when more than one plan happens in a day. Use a short, descriptive slug — `add-rate-limiter`, not `plan-1`.
+Create the file at `<plans-dir>/<YYYY-MM-DD-HHMM>-<kebab-case-task-slug>.md` (where `<plans-dir>` is the path resolved in step 0). Use the actual current date and time — pull it from the system clock rather than guessing — and 24-hour `HHMM` so filenames stay both unique and chronologically sortable when more than one plan happens in a day. Use a short, descriptive slug — `add-rate-limiter`, not `plan-1`.
 
 Use this structure:
 
@@ -91,7 +111,7 @@ Once the user approves, before touching any implementation file:
 1. Update `Status:` from `Draft` to `Approved` in the plan file.
 2. Commit only the plan file:
    ```
-   git add .claude/plans/<filename>.md
+   git add <plans-dir>/<filename>.md
    git commit -m "chore(plan): <slug>"
    ```
    where `<slug>` is the kebab-case portion of the filename after the
@@ -118,12 +138,12 @@ Move `Status:` forward at these exact points — not on a guess:
 - **In Progress** — at the first implementation file edit
 - **Complete** — once every TODO item is checked off
 
-`grep "Status" .claude/plans/*.md` then gives an accurate view of
+`grep "Status" <plans-dir>/*.md` then gives an accurate view of
 all plan states without opening each file.
 
 ## Building a history
 
-Never overwrite or delete an old plan file to make room for a new one — each planning session gets its own dated file. Over time `.claude/plans/` becomes a real record of the project's decisions. If the user asks what was planned previously, or wants context on why something was built a certain way, look in `.claude/plans/` before assuming the answer isn't recorded anywhere.
+Never overwrite or delete an old plan file to make room for a new one — each planning session gets its own dated file. Over time `<plans-dir>/` becomes a real record of the project's decisions. If the user asks what was planned previously, or wants context on why something was built a certain way, look in `<plans-dir>/` before assuming the answer isn't recorded anywhere.
 
 ## Optional: enforcement via hooks
 
