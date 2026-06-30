@@ -18,15 +18,17 @@ research, or planning.
 |---|---|
 | AGENTS.md | Master protocol — session start, file ownership, git integration, skill coordination. Copied into every project. |
 | HOW-TO-USE.md | Plain-language guide for day-to-day use. Copied into every project. |
-| project-init.sh | One-command scaffold for new projects. |
+| project-init.sh | One-command scaffold for new projects. Registers the new project in `projects.txt`. |
+| projects-sync.sh | Push skills and protocol files to all registered projects. |
+| projects.example.txt | Template for `projects.txt` (which is gitignored — machine-specific). |
 | memory/BRIEF-TEMPLATE.md | Section menu, quality bar, and versioning rules for BRIEF.md. |
 | memory/CONTEXT-SCHEMA.md | Structure, line cap, truncation, and phase-transition rules for CONTEXT.md. |
 | memory/DECISIONS-SCHEMA.md | Entry format, fan-in guard, index, archive, and multi-phase handling for DECISIONS.md. |
 | memory/SESSIONS-SCHEMA.md | Entry format, archive rules, and staleness tracking for SESSIONS.md. |
-| .claude/skills/brief/SKILL.md | Creates and revises BRIEF.md through guided elicitation. |
-| .claude/skills/decide/SKILL.md | Logs decisions to DECISIONS.md after deliberation. |
-| .claude/skills/wrap-up/SKILL.md | Closes sessions — updates CONTEXT.md and SESSIONS.md. |
-| .claude/skills/plan-writer/SKILL.md | Writes a structured plan file before implementation begins. |
+| skills/brief/SKILL.md | Creates and revises BRIEF.md through guided elicitation. |
+| skills/decide/SKILL.md | Logs decisions to DECISIONS.md after deliberation. |
+| skills/wrap-up/SKILL.md | Closes sessions — updates CONTEXT.md and SESSIONS.md. |
+| skills/plan-writer/SKILL.md | Writes a structured plan file before implementation begins. |
 
 ```
 CAMP/                                ← this repo
@@ -34,21 +36,23 @@ CAMP/                                ← this repo
 ├── AGENTS.md
 ├── HOW-TO-USE.md
 ├── project-init.sh
+├── projects-sync.sh                 ← push skills and protocol files to registered projects
+├── projects.example.txt             ← template for projects.txt (gitignored)
+├── .gitignore
 ├── memory/
 │   ├── BRIEF-TEMPLATE.md
 │   ├── CONTEXT-SCHEMA.md
 │   ├── DECISIONS-SCHEMA.md
 │   └── SESSIONS-SCHEMA.md
-└── .claude/
-    └── skills/
-        ├── brief/
-        │   └── SKILL.md
-        ├── decide/
-        │   └── SKILL.md
-        ├── wrap-up/
-        │   └── SKILL.md
-        └── plan-writer/
-            └── SKILL.md
+└── skills/
+    ├── brief/
+    │   └── SKILL.md
+    ├── decide/
+    │   └── SKILL.md
+    ├── wrap-up/
+    │   └── SKILL.md
+    └── plan-writer/
+        └── SKILL.md
 ```
 
 ---
@@ -64,14 +68,16 @@ my-project/
 ├── .claude/
 │   ├── settings.local.json          ← attribution setting (not committed)
 │   └── skills/
-│       ├── brief/
-│       │   └── SKILL.md
-│       ├── decide/
-│       │   └── SKILL.md
-│       ├── wrap-up/
-│       │   └── SKILL.md
-│       └── plan-writer/
-│           └── SKILL.md
+│       ├── brief/SKILL.md
+│       ├── decide/SKILL.md
+│       ├── wrap-up/SKILL.md
+│       └── plan-writer/SKILL.md
+├── .cursor/
+│   └── skills/
+│       ├── brief/SKILL.md
+│       ├── decide/SKILL.md
+│       ├── wrap-up/SKILL.md
+│       └── plan-writer/SKILL.md
 └── memory/
     ├── BRIEF.md                     ← filled by `brief` skill
     ├── BRIEF-TEMPLATE.md            ← schema reference
@@ -83,22 +89,6 @@ my-project/
     ├── SESSIONS-SCHEMA.md           ← schema reference
     ├── DECISIONS-ARCHIVE/
     └── SESSIONS-ARCHIVE/
-```
-
-With `--cursor`, the init script also scaffolds:
-
-```
-my-project/
-└── .cursor/
-    └── skills/
-        ├── brief/
-        │   └── SKILL.md
-        ├── decide/
-        │   └── SKILL.md
-        ├── wrap-up/
-        │   └── SKILL.md
-        └── plan-writer/
-            └── SKILL.md
 ```
 
 ---
@@ -125,14 +115,15 @@ TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh my-project-name
 > `.claude/settings.local.json` with attribution disabled. Edit that file if you
 > want Claude Code to append Co-Authored-By trailers to commits.
 
-For Cursor support, add the `--cursor` flag:
+For Cursor-specific config, add the `--cursor` flag:
 
 ```bash
 TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh my-project-name --cursor
 ```
 
-> Also scaffolds `.cursor/skills/` so `/brief`, `/decide`, `/wrap-up`, and
-> `/plan-writer` are available in Cursor's Agent chat.
+> Adds Cursor-specific attribution config (`.cursor/cli-config.json`) and
+> gitignore entries for Cursor settings files. Skills are always scaffolded
+> for both Claude Code and Cursor regardless of this flag.
 
 ### 3. Run `brief` to fill out BRIEF.md
 
@@ -165,13 +156,10 @@ mv .claude/skills/brief .claude/skills/_brief
 
 ### Cursor — same as Claude Code
 
-Cursor reads AGENTS.md natively and auto-discovers skills in `.claude/skills/`
-alongside its own `.cursor/skills/`. No separate skill installation is needed
-if you're already set up for Claude Code — skills installed in `.claude/skills/`
-are shared between both tools automatically.
-
-Use `--cursor` at init time to also scaffold `.cursor/skills/` explicitly,
-which enables Cursor's auto-discovery `when:` field on each skill.
+Cursor reads AGENTS.md natively. Skills are installed in both `.claude/skills/`
+and `.cursor/skills/` by default — `project-init.sh` always scaffolds both
+directories. Use `--cursor` at init time to also add Cursor-specific config
+files (`.cursor/cli-config.json`).
 
 For Cursor-specific always-on rules beyond AGENTS.md, use `.cursor/rules/*.mdc`
 files. The single `.cursorrules` file at the project root is deprecated but
