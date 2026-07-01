@@ -80,6 +80,10 @@ REQUIRED_TEMPLATES=(
   "skills/decide/SKILL.md"
   "skills/wrap-up/SKILL.md"
   "skills/plan-writer/SKILL.md"
+  "skills/plan-writer/hooks/claude/plan-reminder.sh"
+  "skills/plan-writer/hooks/claude/plan-completion-check.sh"
+  "skills/plan-writer/hooks/cursor/plan-reminder.sh"
+  "skills/plan-writer/hooks/cursor/plan-completion-check.sh"
 )
 
 MISSING=()
@@ -112,6 +116,8 @@ for skill in brief decide wrap-up plan-writer; do
   mkdir -p "$PROJECT_NAME"/.claude/skills/$skill
   mkdir -p "$PROJECT_NAME"/.cursor/skills/$skill
 done
+mkdir -p "$PROJECT_NAME"/.claude/hooks
+mkdir -p "$PROJECT_NAME"/.cursor/hooks
 cd "$PROJECT_NAME"
 
 # ── Copy canonical template files ─────────────────────────────────────────
@@ -127,6 +133,63 @@ for skill in brief decide wrap-up plan-writer; do
   cp "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.claude/skills/$skill/SKILL.md"
   cp "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.cursor/skills/$skill/SKILL.md"
 done
+
+for hook in plan-reminder plan-completion-check; do
+  cp "$TEMPLATE_DIR/skills/plan-writer/hooks/claude/$hook.sh" "./.claude/hooks/$hook.sh"
+  chmod +x "./.claude/hooks/$hook.sh"
+  cp "$TEMPLATE_DIR/skills/plan-writer/hooks/cursor/$hook.sh" "./.cursor/hooks/$hook.sh"
+  chmod +x "./.cursor/hooks/$hook.sh"
+done
+
+# ── Hook registration ──────────────────────────────────────────────────────
+
+cat > .claude/settings.json << 'JSON'
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/plan-reminder.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/plan-completion-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+
+cat > .cursor/hooks.json << 'JSON'
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "Write|StrReplace",
+        "command": ".cursor/hooks/plan-reminder.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/plan-completion-check.sh",
+        "loop_limit": null
+      }
+    ]
+  }
+}
+JSON
 
 # Symlink — guard against re-run collision
 if [ ! -L CLAUDE.md ]; then
@@ -214,7 +277,7 @@ fi
 
 # Initial commit — per AGENTS.md git integration section.
 # Note: .claude/settings.local.json is intentionally excluded (listed in .gitignore).
-git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/
+git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/ .claude/hooks/ .cursor/hooks/ .claude/settings.json .cursor/hooks.json
 git commit -m "chore(memory): initial scaffold"
 
 # Disable the cleanup trap now that setup succeeded
@@ -248,8 +311,11 @@ echo ""
 echo "Attribution: .claude/settings.local.json sets attribution to disabled."
 echo "Edit or delete this file to change that preference (not committed to git)."
 echo ""
+echo "Hooks:       .claude/hooks/ and .cursor/hooks/ scaffolded with plan-writer enforcement hooks."
+echo "             Registered in .claude/settings.json and .cursor/hooks.json."
+echo ""
 if [ "$CURSOR" = true ]; then
-  echo "Cursor: .cursor/settings.json and attribution config written."
+  echo "Cursor:      Attribution config written to .cursor/cli-config.json."
   echo ""
 fi
 if [ -n "$REMOTE_URL" ]; then

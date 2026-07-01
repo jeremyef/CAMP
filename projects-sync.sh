@@ -69,6 +69,86 @@ while IFS= read -r PROJECT || [ -n "$PROJECT" ]; do
     sync_file "$src" "$PROJECT/.cursor/skills/$skill/SKILL.md"
   done
 
+  # Sync plan-writer hook scripts (Claude Code)
+  mkdir -p "$PROJECT/.claude/hooks"
+  for hook in plan-reminder plan-completion-check; do
+    sync_file "$TEMPLATE_DIR/skills/plan-writer/hooks/claude/$hook.sh" \
+              "$PROJECT/.claude/hooks/$hook.sh"
+    $DRY_RUN || chmod +x "$PROJECT/.claude/hooks/$hook.sh"
+  done
+
+  # Write-if-absent: Claude Code hook registration
+  if [ ! -f "$PROJECT/.claude/settings.json" ]; then
+    if $DRY_RUN; then
+      echo "  [dry-run] would create: $PROJECT/.claude/settings.json"
+    else
+      cat > "$PROJECT/.claude/settings.json" << 'JSON'
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/plan-reminder.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/plan-completion-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+JSON
+    fi
+  fi
+
+  # Cursor: only if .cursor/ exists in the project
+  if [ -d "$PROJECT/.cursor" ]; then
+    mkdir -p "$PROJECT/.cursor/hooks"
+    for hook in plan-reminder plan-completion-check; do
+      sync_file "$TEMPLATE_DIR/skills/plan-writer/hooks/cursor/$hook.sh" \
+                "$PROJECT/.cursor/hooks/$hook.sh"
+      $DRY_RUN || chmod +x "$PROJECT/.cursor/hooks/$hook.sh"
+    done
+
+    # Write-if-absent: Cursor hook registration
+    if [ ! -f "$PROJECT/.cursor/hooks.json" ]; then
+      if $DRY_RUN; then
+        echo "  [dry-run] would create: $PROJECT/.cursor/hooks.json"
+      else
+        cat > "$PROJECT/.cursor/hooks.json" << 'JSON'
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "Write|StrReplace",
+        "command": ".cursor/hooks/plan-reminder.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/plan-completion-check.sh",
+        "loop_limit": null
+      }
+    ]
+  }
+}
+JSON
+      fi
+    fi
+  fi
+
   SYNCED=$((SYNCED + 1))
 done < "$REGISTRY"
 

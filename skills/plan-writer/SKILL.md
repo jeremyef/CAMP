@@ -141,6 +141,11 @@ all plan states without opening each file.
 
 Never overwrite or delete an old plan file to make room for a new one — each planning session gets its own dated file. Over time `<plans-dir>/` becomes a real record of the project's decisions. If the user asks what was planned previously, or wants context on why something was built a certain way, look in `<plans-dir>/` before assuming the answer isn't recorded anywhere.
 
-## Optional: enforcement via hooks
+## Enforcement via hooks
 
-This skill relies on remembering to keep the plan file in sync as work happens. `.claude/hooks/plan-reminder.sh` and `.claude/hooks/plan-completion-check.sh` make that deterministic instead of advisory — registered via `.claude/settings.json`, they fire automatically on every file edit and on session end respectively, independent of whether this skill happens to be loaded in context. See the hooks' own comments for what each one does.
+`project-init.sh` scaffolds two hooks into every project:
+
+- **plan-reminder** (`.claude/hooks/` / `.cursor/hooks/`) — fires after every file edit. If a plan is marked In Progress, injects a reminder to check off the completed TODO item before continuing.
+- **plan-completion-check** (`.claude/hooks/` / `.cursor/hooks/`) — fires when the agent is about to stop. If a plan is marked In Progress with unchecked TODO items, blocks the stop (Claude Code) or sends a follow-up prompt (Cursor) asking the agent to finish or explain why it's pausing.
+
+Registered automatically in `.claude/settings.json` (Claude Code) and `.cursor/hooks.json` (Cursor). No manual setup needed.

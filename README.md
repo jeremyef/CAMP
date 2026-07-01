@@ -29,6 +29,8 @@ research, or planning.
 | skills/decide/SKILL.md | Logs decisions to DECISIONS.md after deliberation. |
 | skills/wrap-up/SKILL.md | Closes sessions — updates CONTEXT.md and SESSIONS.md. |
 | skills/plan-writer/SKILL.md | Writes a structured plan file before implementation begins. |
+| skills/plan-writer/hooks/claude/ | Plan-writer enforcement hooks for Claude Code. Copied to `.claude/hooks/` in every project. |
+| skills/plan-writer/hooks/cursor/ | Plan-writer enforcement hooks for Cursor. Copied to `.cursor/hooks/` in every project. |
 
 ```
 CAMP/                                ← this repo
@@ -52,7 +54,14 @@ CAMP/                                ← this repo
     ├── wrap-up/
     │   └── SKILL.md
     └── plan-writer/
-        └── SKILL.md
+        ├── SKILL.md
+        └── hooks/
+            ├── claude/
+            │   ├── plan-reminder.sh
+            │   └── plan-completion-check.sh
+            └── cursor/
+                ├── plan-reminder.sh
+                └── plan-completion-check.sh
 ```
 
 ---
