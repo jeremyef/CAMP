@@ -82,8 +82,10 @@ REQUIRED_TEMPLATES=(
   "skills/plan-writer/SKILL.md"
   "skills/plan-writer/hooks/claude/plan-reminder.sh"
   "skills/plan-writer/hooks/claude/plan-completion-check.sh"
+  "skills/plan-writer/hooks/claude/plan-immutability-check.sh"
   "skills/plan-writer/hooks/cursor/plan-reminder.sh"
   "skills/plan-writer/hooks/cursor/plan-completion-check.sh"
+  "skills/plan-writer/hooks/cursor/plan-immutability-check.sh"
 )
 
 MISSING=()
@@ -134,7 +136,7 @@ for skill in brief decide wrap-up plan-writer; do
   cp "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.cursor/skills/$skill/SKILL.md"
 done
 
-for hook in plan-reminder plan-completion-check; do
+for hook in plan-reminder plan-completion-check plan-immutability-check; do
   cp "$TEMPLATE_DIR/skills/plan-writer/hooks/claude/$hook.sh" "./.claude/hooks/$hook.sh"
   chmod +x "./.claude/hooks/$hook.sh"
   cp "$TEMPLATE_DIR/skills/plan-writer/hooks/cursor/$hook.sh" "./.cursor/hooks/$hook.sh"
@@ -146,6 +148,17 @@ done
 cat > .claude/settings.json << 'JSON'
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/plan-immutability-check.sh"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
@@ -175,6 +188,12 @@ cat > .cursor/hooks.json << 'JSON'
 {
   "version": 1,
   "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "Write|StrReplace|Delete",
+        "command": ".cursor/hooks/plan-immutability-check.sh"
+      }
+    ],
     "postToolUse": [
       {
         "matcher": "Write|StrReplace",

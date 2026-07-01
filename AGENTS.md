@@ -107,6 +107,13 @@ All skill writes are atomic: a skill either completes its full write or
 writes nothing. If a skill's flow is interrupted or abandoned partway
 through, no partial content is saved to any file.
 
+Plan files at `Status: Complete` are immutable — do not append, reopen,
+or modify them under any circumstance, including direct revisions to a
+feature just delivered. Follow-on work always requires a new plan file;
+reference the completed plan in the new file's Why section. This applies
+regardless of how obvious or small the change seems — "already diagnosed"
+is not a waiver.
+
 ## Skill ownership (write access only)
 - New or revised BRIEF.md       → `brief` skill only
 - Any decision, large or small   → `decide` skill only

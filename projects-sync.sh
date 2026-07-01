@@ -80,13 +80,61 @@ while IFS= read -r PROJECT || [ -n "$PROJECT" ]; do
 
   # Sync plan-writer hook scripts (Claude Code)
   $DRY_RUN || mkdir -p "$PROJECT/.claude/hooks"
-  for hook in plan-reminder plan-completion-check; do
+  for hook in plan-reminder plan-completion-check plan-immutability-check; do
     sync_file "$TEMPLATE_DIR/skills/plan-writer/hooks/claude/$hook.sh" \
               "$PROJECT/.claude/hooks/$hook.sh"
     if ! $DRY_RUN && [ -f "$PROJECT/.claude/hooks/$hook.sh" ]; then
       chmod +x "$PROJECT/.claude/hooks/$hook.sh"
     fi
   done
+
+  patch_claude_immutability_hook() {
+    local settings="$PROJECT/.claude/settings.json"
+    [ -f "$settings" ] || return 0
+    if $DRY_RUN; then
+        if ! python3 - "$settings" <<'PY' 2>/dev/null; then
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+cmd = "bash .claude/hooks/plan-immutability-check.sh"
+for group in data.get("hooks", {}).get("PreToolUse", []):
+    for hook in group.get("hooks", []):
+        if hook.get("command") == cmd:
+            sys.exit(0)
+sys.exit(1)
+PY
+        echo "  [dry-run] would patch: $settings (add PreToolUse plan-immutability-check)"
+      fi
+      return 0
+    fi
+    python3 - "$settings" <<'PY'
+import json, sys
+
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+
+hooks = data.setdefault("hooks", {})
+pre = hooks.setdefault("PreToolUse", [])
+cmd = "bash .claude/hooks/plan-immutability-check.sh"
+
+for group in pre:
+    for hook in group.get("hooks", []):
+        if hook.get("command") == cmd:
+            sys.exit(0)
+
+pre.insert(0, {
+    "matcher": "Edit|Write|MultiEdit",
+    "hooks": [{"type": "command", "command": cmd}],
+})
+
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+    SYNC_TARGETS+=("$settings")
+  }
 
   # Write-if-absent: Claude Code hook registration
   if [ ! -f "$PROJECT/.claude/settings.json" ]; then
@@ -97,6 +145,17 @@ while IFS= read -r PROJECT || [ -n "$PROJECT" ]; do
       cat > "$PROJECT/.claude/settings.json" << 'JSON'
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/plan-immutability-check.sh"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
@@ -123,18 +182,66 @@ while IFS= read -r PROJECT || [ -n "$PROJECT" ]; do
 JSON
       SYNC_TARGETS+=("$PROJECT/.claude/settings.json")
     fi
+  else
+    patch_claude_immutability_hook
   fi
 
   # Cursor: only if .cursor/ exists in the project
   if [ -d "$PROJECT/.cursor" ]; then
     $DRY_RUN || mkdir -p "$PROJECT/.cursor/hooks"
-    for hook in plan-reminder plan-completion-check; do
+    for hook in plan-reminder plan-completion-check plan-immutability-check; do
       sync_file "$TEMPLATE_DIR/skills/plan-writer/hooks/cursor/$hook.sh" \
                 "$PROJECT/.cursor/hooks/$hook.sh"
       if ! $DRY_RUN && [ -f "$PROJECT/.cursor/hooks/$hook.sh" ]; then
         chmod +x "$PROJECT/.cursor/hooks/$hook.sh"
       fi
     done
+
+    patch_cursor_immutability_hook() {
+      local hooks_json="$PROJECT/.cursor/hooks.json"
+      [ -f "$hooks_json" ] || return 0
+      if $DRY_RUN; then
+        if ! python3 - "$hooks_json" <<'PY' 2>/dev/null; then
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+cmd = ".cursor/hooks/plan-immutability-check.sh"
+for hook in data.get("hooks", {}).get("preToolUse", []):
+    if hook.get("command") == cmd:
+        sys.exit(0)
+sys.exit(1)
+PY
+          echo "  [dry-run] would patch: $hooks_json (add preToolUse plan-immutability-check)"
+        fi
+        return 0
+      fi
+      python3 - "$hooks_json" <<'PY'
+import json, sys
+
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+
+hooks = data.setdefault("hooks", {})
+pre = hooks.setdefault("preToolUse", [])
+cmd = ".cursor/hooks/plan-immutability-check.sh"
+
+for hook in pre:
+    if hook.get("command") == cmd:
+        sys.exit(0)
+
+pre.insert(0, {
+    "matcher": "Write|StrReplace|Delete",
+    "command": cmd,
+})
+
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+      SYNC_TARGETS+=("$hooks_json")
+    }
 
     # Write-if-absent: Cursor hook registration
     if [ ! -f "$PROJECT/.cursor/hooks.json" ]; then
@@ -146,6 +253,12 @@ JSON
 {
   "version": 1,
   "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "Write|StrReplace|Delete",
+        "command": ".cursor/hooks/plan-immutability-check.sh"
+      }
+    ],
     "postToolUse": [
       {
         "matcher": "Write|StrReplace",
@@ -163,6 +276,8 @@ JSON
 JSON
         SYNC_TARGETS+=("$PROJECT/.cursor/hooks.json")
       fi
+    else
+      patch_cursor_immutability_hook
     fi
   fi
 

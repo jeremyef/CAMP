@@ -147,5 +147,6 @@ Never overwrite or delete an old plan file to make room for a new one — each p
 
 - **plan-reminder** (`.claude/hooks/` / `.cursor/hooks/`) — fires after every file edit. If a plan is marked In Progress, injects a reminder to check off the completed TODO item before continuing.
 - **plan-completion-check** (`.claude/hooks/` / `.cursor/hooks/`) — fires when the agent is about to stop. If a plan is marked In Progress with unchecked TODO items, blocks the stop (Claude Code) or sends a follow-up prompt (Cursor) asking the agent to finish or explain why it's pausing.
+- **plan-immutability-check** (`.claude/hooks/` / `.cursor/hooks/`) — fires before Edit, Write, or MultiEdit (Claude Code) / Write, StrReplace, or Delete (Cursor). If the target file is a plan marked Status: Complete, blocks the edit outright. Completed plans are immutable; the block message directs the agent to create a new plan file instead.
 
 Registered automatically in `.claude/settings.json` (Claude Code) and `.cursor/hooks.json` (Cursor). No manual setup needed.
