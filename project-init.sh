@@ -218,7 +218,7 @@ fi
 # ── Stub files — content is written by skills, not this script ────────────
 # One-line comment in each file points to its schema so they're not blank.
 
-echo "# See memory/BRIEF-TEMPLATE.md — content written by \`rebrief\` skill" \
+echo "# See memory/BRIEF-TEMPLATE.md — content written by \`brief\` skill" \
   > memory/BRIEF.md
 echo "# See memory/CONTEXT-SCHEMA.md — content written by \`wrap-up\` skill" \
   > memory/CONTEXT.md

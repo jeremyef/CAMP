@@ -8,7 +8,7 @@ multiple sessions: the model starts fresh every time, and without a structured
 way to carry context forward, you end up re-explaining decisions, relitigating
 settled questions, and watching scope quietly drift over time.
 
-CAMP uses four Markdown files to hold the project's memory, and three skills
+CAMP uses four Markdown files to hold the project's memory, and four skills
 to keep those files updated reliably. It works across Claude Code, Cursor, and
 Claude.ai, and it doesn't care whether your project involves code, writing,
 research, or planning — the structure is the same either way.
@@ -29,13 +29,15 @@ All four live in a `memory/` subdirectory of your project.
 
 ---
 
-## The three skills
+## The four skills
 
-**`brief`** creates or updates BRIEF.md. It's invoked at the start of a new project, and again whenever the project is moving into a new phase with a genuinely different scope. It guides you through the content section by section, pushes back on vague answers, and requires both an "In" and an "Out" list in the Scope section before it'll write anything. It's the most deliberate and least frequent of the three skills.
+**`brief`** creates or updates BRIEF.md. It's invoked at the start of a new project, and again whenever the project is moving into a new phase with a genuinely different scope. It guides you through the content section by section, pushes back on vague answers, and requires both an "In" and an "Out" list in the Scope section before it'll write anything. It's the most deliberate and least frequent of the four skills.
 
 **`decide`** logs a decision to DECISIONS.md. It fires after a choice has been made in conversation — not at the start of a discussion, but at the end, when something's been settled. It checks the decision against the current scope, scans for prior entries on the same topic, shows you the proposed entry for confirmation, and then writes and commits it. It never fires automatically during a discussion; you invoke it once you've reached a conclusion.
 
 **`wrap-up`** closes out a session. It updates CONTEXT.md with the current project state and appends a new entry to SESSIONS.md. It runs a staleness check on recurring items before it writes — if the same thing has been "coming next" for three sessions running without being acted on or formally deferred, it flags it. It also asks "anything decided today that isn't logged yet?" before writing, to catch decisions that didn't go through `decide` during the session.
+
+**`plan-writer`** writes a structured plan before a non-trivial change begins — multi-file features, refactors, migrations, or anything started in Plan Mode. It researches first, then writes a standalone dated file (reasoning, file-by-file impact, a TODO checklist, risks, and a decision log) instead of leaving the plan in chat. Every plan gets its own file rather than overwriting the last one, so `<plans-dir>/` becomes a permanent history of what was planned and why. Three hooks enforce it automatically once scaffolded: a reminder to check off completed TODOs after each edit, a block on stopping mid-plan with unchecked items, and a block on editing a plan already marked Complete.
 
 ---
 
@@ -49,7 +51,7 @@ TEMPLATE_DIR=/path/to/your/templates ./project-init.sh my-project-name
 
 This creates the directory structure, copies the schema and template files, creates the AGENTS.md/CLAUDE.md symlink, writes empty stub files for the four memory files, sets up git, and writes an initial commit. It also creates `.claude/settings.local.json` with commit attribution disabled — edit or delete that file if you want Claude Code to append Co-Authored-By trailers to commits.
 
-Then install the three skills into `.claude/skills/` (see PLATFORM-WIRING.md for the exact commands per platform).
+`project-init.sh` scaffolds the four skills into `.claude/skills/` and `.cursor/skills/` automatically — no separate install step.
 
 Then run `brief` to fill out BRIEF.md before doing any other work. The skill will ask which optional sections apply, walk through each gated section, and only write the file once everything is confirmed. The first SESSIONS.md entry is written automatically at the end of this step.
 

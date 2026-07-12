@@ -119,13 +119,13 @@ uses `git ls-files` + Status to find active plans — a plan that exists
 only on disk (untracked) does not satisfy C0. Make no other file
 changes before this commit.
 
-### 7. Track progress as you execute
-
-As each TODO item is completed, check it off in the file (`- [ ]` → `- [x]`) rather than only mentioning it in chat. This is what gives the user the at-a-glance progress view Cursor's checklist gives them.
-
 ### 6. Log changes of direction, don't silently rewrite
 
 If the approach changes mid-implementation — a step turns out to be wrong, a new constraint surfaces, the user redirects — add a timestamped entry under "Decision log" explaining what changed and why, then update the affected TODO items and "Files affected" entries above it to match. The point of the log is that someone reading the file later can see not just the final plan but how it got there.
+
+### 7. Track progress as you execute
+
+As each TODO item is completed, check it off in the file (`- [ ]` → `- [x]`) rather than only mentioning it in chat. This is what gives the user the at-a-glance progress view Cursor's checklist gives them.
 
 ### 8. Update the status line
 
@@ -143,7 +143,7 @@ Never overwrite or delete an old plan file to make room for a new one — each p
 
 ## Enforcement via hooks
 
-`project-init.sh` scaffolds two hooks into every project:
+`project-init.sh` scaffolds three hooks into every project:
 
 - **plan-reminder** (`.claude/hooks/` / `.cursor/hooks/`) — fires after every file edit. If a plan is marked In Progress, injects a reminder to check off the completed TODO item before continuing.
 - **plan-completion-check** (`.claude/hooks/` / `.cursor/hooks/`) — fires when the agent is about to stop. If a plan is marked In Progress with unchecked TODO items, blocks the stop (Claude Code) or sends a follow-up prompt (Cursor) asking the agent to finish or explain why it's pausing.

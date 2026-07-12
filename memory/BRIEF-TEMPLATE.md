@@ -52,7 +52,7 @@ elsewhere. May be left empty.
 ---
 
 ## Optional sections (propose, don't assume)
-Before drafting, `rebrief` proposes which optional sections apply and
+Before drafting, `brief` proposes which optional sections apply and
 states a one-line reason for each, then waits for explicit confirmation
 before writing anything. Do not silently include or omit optional
 sections — the list must be visible and agreed before drafting starts.
@@ -68,7 +68,7 @@ Available optional sections:
   exist. Skip for open-ended or personal projects. Format: date and
   milestone description, one per line.
 
-This menu is not exhaustive — `rebrief` may propose a section not
+This menu is not exhaustive — `brief` may propose a section not
 listed here if a project genuinely calls for it, using the same
 propose-then-confirm rule.
 
@@ -137,7 +137,7 @@ PATCH bumps: commit only, no tag.
 ---
 
 ## Assembly
-`rebrief` does not write any section to BRIEF.md until every gated
+`brief` does not write any section to BRIEF.md until every gated
 section in the agreed list has passed its quality bar (or the
 explicit user override has been accepted). This is all-or-nothing —
 no partial BRIEF.md is ever saved, per AGENTS.md's write discipline.
