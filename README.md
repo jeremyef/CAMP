@@ -1,72 +1,46 @@
 # CAMP — Context And Memory Protocol
 
-A structured memory system for AI-assisted projects. Solves the core problem
-of working across multiple AI sessions: the model starts fresh every time, and
-without a structured way to carry context forward, you end up re-explaining
-decisions, relitigating settled questions, and watching scope quietly drift.
+![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)
 
-CAMP uses four Markdown files to hold a project's memory and four skills
-to keep them updated reliably. It works across Claude Code, Cursor, and
-Claude.ai, and it doesn't care whether your project involves code, writing,
-research, or planning.
+Structured memory for AI coding sessions that forget everything between conversations.
 
----
-
-## What's in this repo
-
-| File | Purpose |
-|---|---|
-| AGENTS.md | Master protocol — session start, file ownership, git integration, skill coordination. Copied into every project. |
-| HOW-TO-USE.md | Plain-language guide for day-to-day use. Copied into every project. |
-| project-init.sh | One-command scaffold for new projects. Registers the new project in `projects.txt`. |
-| projects-sync.sh | Push skills and protocol files to all registered projects. |
-| projects.example.txt | Template for `projects.txt` (which is gitignored — machine-specific). |
-| memory/BRIEF-TEMPLATE.md | Section menu, quality bar, and versioning rules for BRIEF.md. |
-| memory/CONTEXT-SCHEMA.md | Structure, line cap, truncation, and phase-transition rules for CONTEXT.md. |
-| memory/DECISIONS-SCHEMA.md | Entry format, fan-in guard, index, archive, and multi-phase handling for DECISIONS.md. |
-| memory/SESSIONS-SCHEMA.md | Entry format, archive rules, and staleness tracking for SESSIONS.md. |
-| skills/brief/SKILL.md | Creates and revises BRIEF.md through guided elicitation. |
-| skills/decide/SKILL.md | Logs decisions to DECISIONS.md after deliberation. |
-| skills/wrap-up/SKILL.md | Closes sessions — updates CONTEXT.md and SESSIONS.md. |
-| skills/plan-writer/SKILL.md | Writes a structured plan file before implementation begins. |
-| skills/plan-writer/hooks/claude/ | Plan-writer enforcement hooks for Claude Code. Copied to `.claude/hooks/` in every project. |
-| skills/plan-writer/hooks/cursor/ | Plan-writer enforcement hooks for Cursor. Copied to `.cursor/hooks/` in every project. |
-
-```
-CAMP/                                ← this repo
-├── README.md
-├── AGENTS.md
-├── HOW-TO-USE.md
-├── project-init.sh
-├── projects-sync.sh                 ← push skills and protocol files to registered projects
-├── projects.example.txt             ← template for projects.txt (gitignored)
-├── .gitignore
-├── memory/
-│   ├── BRIEF-TEMPLATE.md
-│   ├── CONTEXT-SCHEMA.md
-│   ├── DECISIONS-SCHEMA.md
-│   └── SESSIONS-SCHEMA.md
-└── skills/
-    ├── brief/
-    │   └── SKILL.md
-    ├── decide/
-    │   └── SKILL.md
-    ├── wrap-up/
-    │   └── SKILL.md
-    └── plan-writer/
-        ├── SKILL.md
-        └── hooks/
-            ├── claude/
-            │   ├── plan-reminder.sh
-            │   └── plan-completion-check.sh
-            └── cursor/
-                ├── plan-reminder.sh
-                └── plan-completion-check.sh
-```
+CAMP solves the core problem of working with AI across multiple sessions: the
+model starts fresh every time, and without a structured way to carry context
+forward, you end up re-explaining decisions, relitigating settled questions,
+and watching scope quietly drift. CAMP uses four Markdown files to hold a
+project's memory and four skills to keep them updated reliably. It works
+across Claude Code, Cursor, and Claude.ai, and it doesn't care whether your
+project involves code, writing, research, or planning.
 
 ---
 
-## What a project looks like after init
+## Quickstart
+
+```bash
+git clone https://github.com/jeremyef/CAMP.git ~/CAMP
+export TEMPLATE_DIR=~/CAMP
+```
+> Clones this repo as your local templates directory and points
+> `TEMPLATE_DIR` at it. Add the `export` line to `~/.zshrc` or `~/.bashrc`
+> to make it permanent.
+
+```bash
+TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh my-project-name
+```
+> Scaffolds a new project: memory files, skills for Claude Code and Cursor,
+> a git repo, and an initial commit. Add `--cursor` for Cursor-specific
+> attribution config, or `--remote=<url>` to verify and wire up a git
+> remote in the same step.
+
+Open the project in Claude Code or Cursor, then run `brief` — it walks
+through elicitation section by section and writes `memory/BRIEF.md` once
+confirmed.
+
+**Requires:** `git`, and `python3` (used by the Cursor plan-immutability
+hook and by `projects-sync.sh` to patch existing hook config files).
+
+<details>
+<summary>What a project looks like after init</summary>
 
 ```
 my-project/
@@ -75,18 +49,28 @@ my-project/
 ├── HOW-TO-USE.md                    ← day-to-day guide (from this repo)
 ├── .gitignore                       ← excludes .claude/settings.local.json
 ├── .claude/
+│   ├── settings.json                ← registers the plan-writer hooks below
 │   ├── settings.local.json          ← attribution setting (not committed)
-│   └── skills/
-│       ├── brief/SKILL.md
-│       ├── decide/SKILL.md
-│       ├── wrap-up/SKILL.md
-│       └── plan-writer/SKILL.md
+│   ├── skills/
+│   │   ├── brief/SKILL.md
+│   │   ├── decide/SKILL.md
+│   │   ├── wrap-up/SKILL.md
+│   │   └── plan-writer/SKILL.md
+│   └── hooks/
+│       ├── plan-reminder.sh
+│       ├── plan-completion-check.sh
+│       └── plan-immutability-check.sh
 ├── .cursor/
-│   └── skills/
-│       ├── brief/SKILL.md
-│       ├── decide/SKILL.md
-│       ├── wrap-up/SKILL.md
-│       └── plan-writer/SKILL.md
+│   ├── hooks.json                   ← registers the plan-writer hooks below
+│   ├── skills/
+│   │   ├── brief/SKILL.md
+│   │   ├── decide/SKILL.md
+│   │   ├── wrap-up/SKILL.md
+│   │   └── plan-writer/SKILL.md
+│   └── hooks/
+│       ├── plan-reminder.sh
+│       ├── plan-completion-check.sh
+│       └── plan-immutability-check.sh
 └── memory/
     ├── BRIEF.md                     ← filled by `brief` skill
     ├── BRIEF-TEMPLATE.md            ← schema reference
@@ -100,203 +84,285 @@ my-project/
     └── SESSIONS-ARCHIVE/
 ```
 
+</details>
+
 ---
 
-## Setup
+## How it works
 
-### 1. Clone this repo as your templates directory
+Four files, all in `memory/`:
 
-```bash
-git clone <this-repo> ~/CAMP
-export TEMPLATE_DIR=~/CAMP
+| File | Answers | Updated by |
+|---|---|---|
+| **BRIEF.md** | What is this project, what's in/out of scope, what does success look like | `brief`, rarely |
+| **CONTEXT.md** | Where does this stand right now | `wrap-up`, every session |
+| **DECISIONS.md** | What was settled, and why | `decide`, when something's decided |
+| **SESSIONS.md** | What happened, session by session | `wrap-up`, every session |
+
+Four skills keep them honest:
+
+| Skill | Does |
+|---|---|
+| `brief` | Elicits and writes BRIEF.md, section by section |
+| `decide` | Logs a settled decision to DECISIONS.md, checked against scope first |
+| `wrap-up` | Closes a session — updates CONTEXT.md, appends SESSIONS.md, flags stale "coming next" items |
+| `plan-writer` | Writes a standalone, dated plan file before non-trivial changes — enforced by hooks that block edits until it's followed |
+
+---
+
+## CAMP in practice
+
+### Scoping a new project
+
+Say you're building a small habit-tracker app — one that actually helps you
+stick to habits, unlike generic to-do apps. You open Claude Code and
+describe the idea. There's no `memory/BRIEF.md` yet, so `brief` fires on
+its own and asks a few questions before writing anything.
+
+It pushes back on vague answers — "an app to help me build habits" becomes
+"keep one habit going for 30 days without a missed day slipping by
+unnoticed." It also insists on what you're *not* building, the part people
+usually skip, and skipping it is how small projects balloon. Then: how will
+you know it worked, and what's off the table (here: fully offline, no
+login).
+
+Once you've answered everything, it writes this:
+
+```
+# BRIEF.md — v1.0.0 (2026-06-21)
+
+## Purpose
+Help you actually stick to daily habits instead of quietly giving up
+on them after a few days, the way generic to-do apps let happen.
+
+## Scope
+
+In:
+- Log a habit as done for the day, one tap.
+- See your current streak for each habit.
+
+Out:
+- Social features, sharing streaks, or leaderboards.
+- Habit suggestions or AI coaching.
+
+## Success criteria
+Still using it daily after 30 days, with at least one habit at a
+30-day streak and zero missed days going unnoticed.
+
+## Constraints / non-negotiables
+Must work fully offline — no account or login required.
+
+## Notes
+Single-user for now — no need to support more than one person's
+habits in the same app yet.
 ```
 
-> Add the `export` line to `~/.zshrc` or `~/.bashrc` to make it permanent.
+### Implementing a change
 
-### 2. Start a new project
+A few weeks in, you want to add a "streak freeze" — skip a day without
+losing your streak. That touches storage, the streak logic, and the UI, so
+it's not a one-line fix. Before any file gets touched, CAMP's
+pre-implementation check (C0 in AGENTS.md) fires, regardless of how you
+phrase the request.
 
-```bash
-TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh my-project-name
+It checks `.claude/plans/` (or `.cursor/plans/`) for an existing plan.
+Finding none, it asks: *"No plan found — run `plan-writer` first?"* Say
+yes, and `plan-writer` reads the real streak code, then writes a dated
+file:
+
+```
+# Plan: Add streak freeze to habit tracker
+
+> **Date:** 2026-07-14 09:30 · **Status:** Approved
+
+## Why
+Missing one day currently resets the whole streak, which is
+discouraging enough that it's a common reason people abandon habit
+trackers entirely. A limited freeze lets one missed day pass without
+losing the streak, without removing the accountability that makes
+streaks motivating in the first place. Considered making streaks
+never reset at all — rejected, since that removes the pressure that
+makes a streak worth keeping.
+
+## Files affected
+- `lib/streak.ts` — freeze-aware streak calculation: a frozen day
+  counts as "not missed" but not "completed."
+- `lib/habitStore.ts` — add a `frozenDays` field per habit and a
+  method to apply a freeze.
+- `components/HabitCard.tsx` — freeze button, shown only when a
+  streak would otherwise break today.
+- `components/StreakBadge.tsx` — show a frost icon on frozen days
+  in the streak history.
+
+## TODO
+- [ ] Add `frozenDays` to the habit data model; migrate existing
+      local storage data.
+- [ ] Update streak calculation to treat frozen days as non-breaking.
+- [ ] Add the freeze action to `habitStore.ts`.
+- [ ] Add the freeze button to `HabitCard.tsx`.
+- [ ] Show frozen days distinctly in the streak history UI.
+- [ ] Manually test: miss a day, freeze it, confirm streak continues;
+      miss a second day without freezing, confirm streak resets.
+
+## Risks / open questions
+- Cap freezes (e.g. one per month) or leave unlimited? Leaving
+  unlimited for v1 — revisit if it undermines the point of streaks.
+
+## Decision log
+> **2026-07-16 14:10 —** Capped freezes at one per month after two
+> weeks of use — unlimited freezes made the streak feel meaningless.
+> Updated TODO and Files affected to add the cap check to
+> `lib/streak.ts`.
 ```
 
-> Run with `TEMPLATE_DIR` set. The script validates your environment, copies
-> template files and skills, creates the git repo and initial commit, and writes
-> `.claude/settings.local.json` with attribution disabled. Edit that file if you
-> want Claude Code to append Co-Authored-By trailers to commits.
+Nothing gets implemented until you approve it. Approval gets committed as
+the record; TODO items get checked off as you go — including the
+mid-flight change logged above once unlimited freezes turned out to feel
+too easy.
 
-For Cursor-specific config, add the `--cursor` flag:
+### Making a decision
 
-```bash
-TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh my-project-name --cursor
+That note in the plan's Decision log only tracks how the plan changed —
+it's scoped to the plan file, not the project. Whether to cap freezes at
+all is a real product decision, one that would confuse a future session if
+silently reversed. That's what `decide` is for.
+
+`decide` checks BRIEF.md's Scope first (already covered — no rebrief
+needed), then scans DECISIONS.md for anything logged on this topic.
+Finding nothing, it shows you the proposed entry and waits for
+confirmation:
+
+```
+### DEC-003 — 2026-07-16 — Cap streak freezes at one per month
+
+Context:
+Testing showed unlimited freezes made the streak feel meaningless —
+after two weeks, missed days stopped feeling like they mattered.
+
+Decision:
+Limit to one freeze per calendar month per habit.
+
+Alternatives considered:
+- Unlimited freezes — rejected. Undermines the accountability that
+  makes a streak worth keeping in the first place.
+- No freezes at all — rejected. One missed day shouldn't erase weeks
+  of consistency; that's the whole reason this feature exists.
+
+Disposition: Active
+Brief version: v1.1.0
 ```
 
-> Adds Cursor-specific attribution config (`.cursor/cli-config.json`) and
-> gitignore entries for Cursor settings files. Skills are always scaffolded
-> for both Claude Code and Cursor regardless of this flag.
+Confirm it, and `decide` writes and commits it immediately — unlike
+CONTEXT.md and SESSIONS.md, decisions aren't batched to the end of the
+session.
 
-### 3. Run `brief` to fill out BRIEF.md
+### Staying oriented across sessions
 
-Open the project in Claude Code or Cursor. The session-start protocol fires
-automatically. Then invoke the `brief` skill — it guides you through
-elicitation section by section and writes BRIEF.md once everything is
-confirmed.
+A few sessions later, `wrap-up` rewrites `memory/CONTEXT.md` from scratch —
+capped at 30 lines, so it's fast to read next time:
+
+```
+[2026-07-16] [v1.1.0] Streak freeze shipped and capped at 1/month.
+
+## Current focus
+Watching real usage of the freeze cap before considering rollover.
+
+## Active blockers
+None
+
+## Open questions
+- Should an unused monthly freeze roll over to the next month?
+
+## Recently completed
+- Daily habit logging and streak counting shipped and in daily use.
+- Streak freeze shipped. DEC-002: streaks stored locally, no sync
+  between devices. DEC-003: freezes capped at one per month.
+```
+
+Open a new conversation later, and session-start reads BRIEF.md,
+CONTEXT.md, the DECISIONS.md index, and the last three SESSIONS.md entries
+before responding to anything — "where were we?" is answered before you
+ask.
+
+---
+
+## Keeping projects in sync
+
+Running CAMP across more than one project? `projects-sync.sh` pushes
+AGENTS.md, the four skills, and the plan-writer hooks from this template
+out to every registered project — so a fix made here doesn't have to be
+copied by hand into each one.
+
+```bash
+cp projects.example.txt projects.txt
+# then add one absolute project path per line
+```
+> Registers which projects get synced. `projects.txt` is gitignored —
+> machine-specific. `project-init.sh` also registers a project here
+> automatically the moment you scaffold it, so you only need this step for
+> projects that existed before you started using this template.
+
+```bash
+./projects-sync.sh
+```
+> Copies AGENTS.md and the four skills into `.claude/skills/` and
+> `.cursor/skills/` in every registered project, syncs the three
+> plan-writer hook scripts, and patches (or creates, if missing)
+> `.claude/settings.json` / `.cursor/hooks.json` so the hooks stay
+> registered. Commits the changes in each project automatically.
+
+```bash
+./projects-sync.sh --dry-run   # preview changes, write nothing
+./projects-sync.sh --no-commit # sync files but leave the commit to you
+```
 
 ---
 
 ## Platform specifics
 
-### Claude Code — full native support
+<details>
+<summary><b>Claude Code</b> — full native support</summary>
 
-CLAUDE.md (symlinked to AGENTS.md) is read natively. Skills in
-`.claude/skills/` are auto-discovered. Memory files are on the local
-filesystem — skills read and write them directly. Git operations run
-automatically per the staging and commit rules in AGENTS.md.
+CLAUDE.md (symlinked to AGENTS.md) is read natively, skills auto-discovered,
+memory files read/written directly on the local filesystem. Invoke skills
+via slash command or let Claude match them automatically.
 
-Skills can be invoked via slash command (`/brief`, `/decide`, `/wrap-up`,
-`/plan-writer`) or autonomously when Claude matches the description to the
-conversation.
+</details>
 
-To disable a skill temporarily without deleting it:
-```bash
-mv .claude/skills/brief .claude/skills/_brief
-```
-> Prefixing the folder with `_` causes Claude Code to skip it. Rename back
-> to re-enable. Takes effect on the next session.
+<details>
+<summary><b>Cursor</b> — same as Claude Code</summary>
 
-### Cursor — same as Claude Code
+Cursor reads AGENTS.md natively; skills are installed to both
+`.claude/skills/` and `.cursor/skills/` by default.
 
-Cursor reads AGENTS.md natively. Skills are installed in both `.claude/skills/`
-and `.cursor/skills/` by default — `project-init.sh` always scaffolds both
-directories. Use `--cursor` at init time to also add Cursor-specific config
-files (`.cursor/cli-config.json`).
+</details>
 
-For Cursor-specific always-on rules beyond AGENTS.md, use `.cursor/rules/*.mdc`
-files. The single `.cursorrules` file at the project root is deprecated but
-still works.
+<details>
+<summary><b>Claude.ai</b> — limited, manual sync required</summary>
 
-### Claude.ai — limited; manual sync required
+No filesystem access — paste AGENTS.md into custom instructions, upload
+memory files as Project Knowledge, and copy skill output back manually.
 
-Claude.ai does not have local filesystem access. Skills run in a sandboxed
-container, not your project directory.
-
-**AGENTS.md:** paste contents into the Project's custom instructions field,
-or upload as Project Knowledge.
-
-**Memory files:** upload current BRIEF.md, CONTEXT.md, and the DECISIONS.md
-index as Project Knowledge before each session. Claude.ai reads them but
-cannot update them.
-
-**Skill writes:** skills output updated file content as text. Copy it to
-your local files manually. Log any decisions reached in claude.ai via
-`decide` in your next Claude Code or Cursor session.
-
-**Git operations:** not applicable. Skip entirely.
-
-**Installing skills on claude.ai:**
-
-```bash
-# Package each skill as a ZIP with the folder at its root
-mkdir -p /tmp/brief      && cp .claude/skills/brief/SKILL.md      /tmp/brief/SKILL.md
-mkdir -p /tmp/decide     && cp .claude/skills/decide/SKILL.md     /tmp/decide/SKILL.md
-mkdir -p /tmp/wrap-up    && cp .claude/skills/wrap-up/SKILL.md    /tmp/wrap-up/SKILL.md
-mkdir -p /tmp/plan-writer && cp .claude/skills/plan-writer/SKILL.md /tmp/plan-writer/SKILL.md
-
-cd /tmp
-zip -r brief.zip brief/ && zip -r decide.zip decide/ && zip -r wrap-up.zip wrap-up/ && zip -r plan-writer.zip plan-writer/
-```
-
-> Upload each ZIP via Settings > Customize > Skills > "+" > "Create skill."
-> Available on Pro, Max, Team, and Enterprise plans with code execution
-> enabled. Re-upload whenever skill files change — claude.ai does not pick
-> up changes automatically.
-
-**Skill updates:** every change to a SKILL.md file requires re-zipping and
-re-uploading to claude.ai. Claude Code and Cursor pick up changes on the
-next session restart.
-
----
-
-## Token usage estimates
-
-> **Note — dated June 2026.** Anthropic adjusts usage limits periodically
-> without publishing fixed token counts. The absolute numbers below may
-> drift; the relative percentages and practical guidance hold regardless.
-
-### What drives cost
-
-Every message re-reads the full accumulated context from scratch, so token
-cost compounds with session length. The memory system's static footprint
-(the files read at session start) gets paid on every turn, not just once.
-
-**Static footprint — steady state:**
-
-| File | Tokens |
-|---|---|
-| AGENTS.md | ~1,400 |
-| BRIEF.md | ~300 |
-| CONTEXT.md | ~250 |
-| DECISIONS.md index (mature project) | ~300 |
-| SESSIONS.md (last 3 entries) | ~250 |
-| **Total** | **~2,500** |
-
-Before the DECISIONS.md index exists (first ~40 entries), the full file is
-read each session. Cost at 20 entries is roughly 1,000–1,500 tokens; at 39
-entries it may hit 2,000+. Once the index generates, it drops to ~300 and
-stays flat regardless of project age.
-
-### Project init (first `brief` run)
-
-Init loads BRIEF-TEMPLATE.md on top of the standard footprint (~1,200
-additional tokens). A typical elicitation takes 10–15 exchanges.
-
-**Estimated total: 45,000–60,000 tokens.**
-
-On Pro this sits right at or above the window — init may trigger compaction
-or need a second conversation. On Max 5x it fits comfortably.
-
-### Day-to-day sessions
-
-| Session type | Messages | Estimate |
-|---|---|---|
-| Short planning / research | 10 | ~25,000 |
-| Typical build session + `decide` + `wrap-up` | 20 | ~55,000 |
-| Long debugging / exploration | 35 | ~92,000 |
-
-Skills overhead (`decide` + `wrap-up` in one session) adds roughly
-5,000 tokens from schema loading and confirmation exchanges.
-
-### Against plan tiers (approximate)
-
-| Plan | Window | Init | Short | Typical | Long |
-|---|---|---|---|---|---|
-| Pro | ~44K | ⚠️ Tight | ✅ | ❌ Exceeds | ❌ |
-| Max 5x | ~88K | ✅ | ✅ | ✅ | ⚠️ ~105% |
-| Max 20x | ~220K | ✅ | ✅ | ✅ | ✅ |
-
-**Practical guidance:**
-
-On Pro, keep sessions short and deliberate. Invoke `wrap-up` earlier than
-feels natural and start a new conversation — the footprint resets on a new
-thread. Long exploratory sessions without compaction are not viable on Pro.
-
-On Max 5x, the system works well for sessions up to ~25–30 messages. Past
-35 messages, watch for the window limit.
-
-On Max 20x, there is comfortable headroom for nearly any working session.
-
-The most expensive individual sessions are typically early-phase research
-(many turns of back-and-forth before anything is decided), not later
-implementation sessions where work is more heads-down.
+</details>
 
 ---
 
 ## Further reading
 
-- **HOW-TO-USE.md** — copied into every project. Covers the four files,
-  the four skills, typical session flow, phase transitions, and tool
-  choice guidance. Start here once a project is running.
-- **memory/\*-SCHEMA.md** — the exact format spec for each memory file.
-  Reference when something looks wrong or you want to understand a
-  file's structure in detail.
-- **AGENTS.md** — the full CAMP protocol. Everything the AI reads to govern
-  how the system behaves.
+- **HOW-TO-USE.md** — the four files and skills, day to day.
+- **memory/\*-SCHEMA.md** — exact format spec per memory file.
+- **AGENTS.md** — the full protocol.
+
+---
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
+
+---
+
+## Related
+
+Want the Plan → Implement → Validate agentic workflow layer (gnhf,
+treehouse, firstmate, no-mistakes, Lavish) on top of this? See
+[CAMP-agentic](https://github.com/jeremyef/CAMP-agentic).
