@@ -88,6 +88,17 @@ while IFS= read -r PROJECT || [ -n "$PROJECT" ]; do
     fi
   done
 
+  # Sync subagent-model-policy hook (Claude Code only — no Cursor equivalent)
+  sync_file "$TEMPLATE_DIR/hooks/claude/subagent-model-policy-check.sh" \
+            "$PROJECT/.claude/hooks/subagent-model-policy-check.sh"
+  if ! $DRY_RUN && [ -f "$PROJECT/.claude/hooks/subagent-model-policy-check.sh" ]; then
+    chmod +x "$PROJECT/.claude/hooks/subagent-model-policy-check.sh"
+  fi
+
+  # Sync memory-ID-collision CI check
+  sync_file "$TEMPLATE_DIR/.github/workflows/memory-id-check.yml" \
+            "$PROJECT/.github/workflows/memory-id-check.yml"
+
   patch_claude_immutability_hook() {
     local settings="$PROJECT/.claude/settings.json"
     [ -f "$settings" ] || return 0
@@ -136,6 +147,54 @@ PY
     SYNC_TARGETS+=("$settings")
   }
 
+  patch_subagent_model_policy_hook() {
+    local settings="$PROJECT/.claude/settings.json"
+    [ -f "$settings" ] || return 0
+    if $DRY_RUN; then
+        if ! python3 - "$settings" <<'PY' 2>/dev/null; then
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+cmd = "bash .claude/hooks/subagent-model-policy-check.sh"
+for group in data.get("hooks", {}).get("PreToolUse", []):
+    for hook in group.get("hooks", []):
+        if hook.get("command") == cmd:
+            sys.exit(0)
+sys.exit(1)
+PY
+        echo "  [dry-run] would patch: $settings (add PreToolUse subagent-model-policy-check)"
+      fi
+      return 0
+    fi
+    python3 - "$settings" <<'PY'
+import json, sys
+
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+
+hooks = data.setdefault("hooks", {})
+pre = hooks.setdefault("PreToolUse", [])
+cmd = "bash .claude/hooks/subagent-model-policy-check.sh"
+
+for group in pre:
+    for hook in group.get("hooks", []):
+        if hook.get("command") == cmd:
+            sys.exit(0)
+
+pre.append({
+    "matcher": "Agent|Workflow",
+    "hooks": [{"type": "command", "command": cmd}],
+})
+
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+    SYNC_TARGETS+=("$settings")
+  }
+
   # Write-if-absent: Claude Code hook registration
   if [ ! -f "$PROJECT/.claude/settings.json" ]; then
     if $DRY_RUN; then
@@ -152,6 +211,15 @@ PY
           {
             "type": "command",
             "command": "bash .claude/hooks/plan-immutability-check.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/subagent-model-policy-check.sh"
           }
         ]
       }
@@ -184,6 +252,7 @@ JSON
     fi
   else
     patch_claude_immutability_hook
+    patch_subagent_model_policy_hook
   fi
 
   # Cursor: only if .cursor/ exists in the project

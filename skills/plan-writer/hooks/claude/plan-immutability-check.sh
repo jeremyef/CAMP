@@ -26,7 +26,7 @@ while IFS= read -r FILE_PATH; do
   cat <<EOF
 {
   "decision": "block",
-  "reason": "${PLAN_NAME} is marked Status: Complete — completed plans are immutable. Create a new plan file for any follow-on work and reference this one in the new plan's Why section."
+  "reason": "${PLAN_NAME} is marked Status: Complete — completed plans are immutable. For follow-on work, create a new plan file referencing this one. For a small note, add it to this session's wrap-up instead. If you believe this was marked Complete in error, ask the user before reopening it — do not set Status back to In Progress yourself."
 }
 EOF
   exit 0

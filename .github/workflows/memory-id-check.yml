@@ -1,0 +1,35 @@
+name: Memory ID collision check
+
+on:
+  pull_request:
+    paths:
+      - 'memory/DECISIONS.md'
+      - 'memory/SESSIONS.md'
+      - 'memory/DECISIONS-ARCHIVE/**'
+      - 'memory/SESSIONS-ARCHIVE/**'
+
+jobs:
+  check-duplicate-ids:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for duplicate DEC-/SESS- IDs
+        run: |
+          set -euo pipefail
+          fail=0
+
+          check() {
+            local pattern="$1"; shift
+            local dupes
+            dupes=$(grep -ohE "$pattern" "$@" 2>/dev/null | sort | uniq -d || true)
+            if [ -n "$dupes" ]; then
+              echo "::error::Duplicate ID(s): $(echo "$dupes" | tr '\n' ' ')"
+              fail=1
+            fi
+          }
+
+          check 'DEC-[0-9]{3,}' memory/DECISIONS.md memory/DECISIONS-ARCHIVE/*.md
+          check 'SESS-[0-9]{3,}' memory/SESSIONS.md memory/SESSIONS-ARCHIVE/*.md
+
+          exit $fail

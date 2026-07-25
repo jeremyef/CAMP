@@ -132,7 +132,24 @@ As each TODO item is completed, check it off in the file (`- [ ]` → `- [x]`) r
 Move `Status:` forward at these exact points — not on a guess:
 - **Approved** — at step 5 (the commit), not when the user says "yes" in chat
 - **In Progress** — at the first implementation file edit
-- **Complete** — once every TODO item is checked off
+- **Complete** — only once every TODO item is checked off AND you have
+  made every other edit you intend to make to this plan file (Decision
+  log entries, Files affected corrections, TODO wording fixes). The
+  `Status: Complete` edit must be its own dedicated tool call — never
+  bundled with a TODO checkbox or a Decision log entry in the same
+  call. Once written, `plan-immutability-check.sh` blocks every further
+  edit to this file — treat it as one-way.
+
+If something is discovered after Status is already Complete, it does
+not go back into this file. Route it to one of:
+- a note in this session's `wrap-up` (small observation), or
+- a new plan file's "Why" section referencing this one (real follow-on
+  work).
+
+Reopening a Complete plan (Status back to In Progress) is a human
+decision, not an agent one. If you believe a plan was marked Complete
+in error, ask the user before touching the file — do not set Status
+back yourself.
 
 `grep "Status" <plans-dir>/*.md` then gives an accurate view of
 all plan states without opening each file.

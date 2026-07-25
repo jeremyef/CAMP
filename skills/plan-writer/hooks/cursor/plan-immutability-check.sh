@@ -48,8 +48,10 @@ if "**Status:** Complete" not in content:
 plan_name = os.path.basename(path)
 msg = (
     f"{plan_name} is marked Status: Complete — completed plans are immutable. "
-    "Create a new plan file for any follow-on work and reference this one "
-    "in the new plan's Why section."
+    "For follow-on work, create a new plan file referencing this one. For a "
+    "small note, add it to this session's wrap-up instead. If you believe "
+    "this was marked Complete in error, ask the user before reopening it — "
+    "do not set Status back to In Progress yourself."
 )
 print(json.dumps({
     "permission": "deny",

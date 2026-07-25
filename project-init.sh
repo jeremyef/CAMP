@@ -86,6 +86,8 @@ REQUIRED_TEMPLATES=(
   "skills/plan-writer/hooks/cursor/plan-reminder.sh"
   "skills/plan-writer/hooks/cursor/plan-completion-check.sh"
   "skills/plan-writer/hooks/cursor/plan-immutability-check.sh"
+  "hooks/claude/subagent-model-policy-check.sh"
+  ".github/workflows/memory-id-check.yml"
 )
 
 MISSING=()
@@ -120,6 +122,7 @@ for skill in brief decide wrap-up plan-writer; do
 done
 mkdir -p "$PROJECT_NAME"/.claude/hooks
 mkdir -p "$PROJECT_NAME"/.cursor/hooks
+mkdir -p "$PROJECT_NAME"/.github/workflows
 cd "$PROJECT_NAME"
 
 # ── Copy canonical template files ─────────────────────────────────────────
@@ -143,6 +146,14 @@ for hook in plan-reminder plan-completion-check plan-immutability-check; do
   chmod +x "./.cursor/hooks/$hook.sh"
 done
 
+# Claude-Code-only — no Cursor equivalent (policy targets Agent/Workflow
+# tool calls, which are Claude Code constructs).
+cp "$TEMPLATE_DIR/hooks/claude/subagent-model-policy-check.sh" "./.claude/hooks/subagent-model-policy-check.sh"
+chmod +x "./.claude/hooks/subagent-model-policy-check.sh"
+
+# CI check — inert until a remote + PR workflow exist; harmless either way.
+cp "$TEMPLATE_DIR/.github/workflows/memory-id-check.yml" "./.github/workflows/memory-id-check.yml"
+
 # ── Hook registration ──────────────────────────────────────────────────────
 
 cat > .claude/settings.json << 'JSON'
@@ -155,6 +166,15 @@ cat > .claude/settings.json << 'JSON'
           {
             "type": "command",
             "command": "bash .claude/hooks/plan-immutability-check.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/subagent-model-policy-check.sh"
           }
         ]
       }
@@ -296,7 +316,7 @@ fi
 
 # Initial commit — per AGENTS.md git integration section.
 # Note: .claude/settings.local.json is intentionally excluded (listed in .gitignore).
-git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/ .claude/hooks/ .cursor/hooks/ .claude/settings.json .cursor/hooks.json
+git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/ .claude/hooks/ .cursor/hooks/ .claude/settings.json .cursor/hooks.json .github/workflows/
 git commit -m "chore(memory): initial scaffold"
 
 # Disable the cleanup trap now that setup succeeded
@@ -331,7 +351,21 @@ echo "Attribution: .claude/settings.local.json sets attribution to disabled."
 echo "Edit or delete this file to change that preference (not committed to git)."
 echo ""
 echo "Hooks:       .claude/hooks/ and .cursor/hooks/ scaffolded with plan-writer enforcement hooks."
+echo "             .claude/hooks/ also has subagent-model-policy-check.sh (Claude Code only)"
+echo "             enforcing CLAUDE.md's subagent-model-policy on Agent/Workflow calls."
 echo "             Registered in .claude/settings.json and .cursor/hooks.json."
+echo ""
+echo "CI:          .github/workflows/memory-id-check.yml scaffolded — flags duplicate"
+echo "             DEC-/SESS- IDs on PRs touching memory/. Inert until you push a remote."
+echo ""
+echo "Optional: to enforce PR-only merges once you've pushed a remote (blocks direct"
+echo "  pushes to main, requires the memory ID check above to pass before merging):"
+echo "  gh api repos/{owner}/{repo}/branches/main/protection -X PUT \\"
+echo "    -f required_status_checks[strict]=true \\"
+echo "    -f 'required_status_checks[contexts][]=check-duplicate-ids' \\"
+echo "    -f enforce_admins=true \\"
+echo "    -f 'required_pull_request_reviews[required_approving_review_count]=0' \\"
+echo "    -f restrictions=null"
 echo ""
 if [ "$CURSOR" = true ]; then
   echo "Cursor:      Attribution config written to .cursor/cli-config.json."
