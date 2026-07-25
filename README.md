@@ -36,8 +36,10 @@ Open the project in Claude Code or Cursor, then run `brief` — it walks
 through elicitation section by section and writes `memory/BRIEF.md` once
 confirmed.
 
-**Requires:** `git`, and `python3` (used by the Cursor plan-immutability
-hook and by `projects-sync.sh` to patch existing hook config files).
+**Requires:** `git`, `gh` (optional — only for the branch-protection step
+printed at the end of init), and `python3` (used by the Cursor
+plan-immutability hook, the subagent-model-policy hook, and by
+`projects-sync.sh` to patch existing hook config files).
 
 <details>
 <summary>What a project looks like after init</summary>
@@ -49,7 +51,7 @@ my-project/
 ├── HOW-TO-USE.md                    ← day-to-day guide (from this repo)
 ├── .gitignore                       ← excludes .claude/settings.local.json
 ├── .claude/
-│   ├── settings.json                ← registers the plan-writer hooks below
+│   ├── settings.json                ← registers the hooks below
 │   ├── settings.local.json          ← attribution setting (not committed)
 │   ├── skills/
 │   │   ├── brief/SKILL.md
@@ -59,7 +61,8 @@ my-project/
 │   └── hooks/
 │       ├── plan-reminder.sh
 │       ├── plan-completion-check.sh
-│       └── plan-immutability-check.sh
+│       ├── plan-immutability-check.sh
+│       └── subagent-model-policy-check.sh   ← Claude Code only
 ├── .cursor/
 │   ├── hooks.json                   ← registers the plan-writer hooks below
 │   ├── skills/
@@ -71,6 +74,9 @@ my-project/
 │       ├── plan-reminder.sh
 │       ├── plan-completion-check.sh
 │       └── plan-immutability-check.sh
+├── .github/
+│   └── workflows/
+│       └── memory-id-check.yml      ← flags duplicate DEC-/SESS- IDs on PRs
 └── memory/
     ├── BRIEF.md                     ← filled by `brief` skill
     ├── BRIEF-TEMPLATE.md            ← schema reference
@@ -289,9 +295,9 @@ ask.
 ## Keeping projects in sync
 
 Running CAMP across more than one project? `projects-sync.sh` pushes
-AGENTS.md, the four skills, and the plan-writer hooks from this template
-out to every registered project — so a fix made here doesn't have to be
-copied by hand into each one.
+AGENTS.md, the four skills, the plan-writer hooks, the subagent-model-policy
+hook, and the memory-ID CI check out to every registered project — so a
+fix made here doesn't have to be copied by hand into each one.
 
 ```bash
 cp projects.example.txt projects.txt
@@ -306,10 +312,11 @@ cp projects.example.txt projects.txt
 ./projects-sync.sh
 ```
 > Copies AGENTS.md and the four skills into `.claude/skills/` and
-> `.cursor/skills/` in every registered project, syncs the three
-> plan-writer hook scripts, and patches (or creates, if missing)
-> `.claude/settings.json` / `.cursor/hooks.json` so the hooks stay
-> registered. Commits the changes in each project automatically.
+> `.cursor/skills/` in every registered project, syncs the plan-writer
+> hook scripts, the Claude-Code-only subagent-model-policy hook, and
+> `.github/workflows/memory-id-check.yml`, and patches (or creates, if
+> missing) `.claude/settings.json` / `.cursor/hooks.json` so the hooks
+> stay registered. Commits the changes in each project automatically.
 
 ```bash
 ./projects-sync.sh --dry-run   # preview changes, write nothing
