@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# project-init.sh — scaffold a new CAMP project.
+# project-init.sh — scaffold a new CAMP project, or add CAMP to an existing one.
 # CAMP: Context And Memory Protocol
 #
 # Usage:
 #   TEMPLATE_DIR=/path/to/your/templates ./project-init.sh <project-name> [--remote=<url>] [--cursor]
+#   TEMPLATE_DIR=/path/to/your/templates ./project-init.sh --existing <path-to-existing-project> [--remote=<url>] [--cursor]
+#
+# --existing scaffolds CAMP into a directory that already exists (and likely
+# already has its own files, git history, and settings). It never overwrites
+# anything it didn't create: any file that already exists at a destination
+# path is left untouched and reported as skipped. Files that need merging
+# rather than a straight copy (CLAUDE.md, .gitignore, .claude/settings.json,
+# .cursor/hooks.json) are merged in place instead of being skipped outright.
 #
 # TEMPLATE_DIR must contain:
 #   AGENTS.md, HOW-TO-USE.md, BRIEF-TEMPLATE.md, CONTEXT-SCHEMA.md,
@@ -20,12 +28,14 @@ set -euo pipefail
 # ── Guards ────────────────────────────────────────────────────────────────
 
 CURSOR=false
+EXISTING=false
 REMOTE_URL=""
 POSITIONAL_ARGS=()
 
 for arg in "$@"; do
   case "$arg" in
     --cursor) CURSOR=true ;;
+    --existing) EXISTING=true ;;
     --remote=*) REMOTE_URL="${arg#--remote=}" ;;
     --remote) echo "Error: --remote requires a value, e.g. --remote=https://github.com/user/repo.git" >&2; exit 1 ;;
     --*) echo "Error: unknown flag '$arg'" >&2; exit 1 ;;
@@ -35,21 +45,31 @@ done
 
 if [ ${#POSITIONAL_ARGS[@]} -eq 0 ]; then
   echo "Usage: project-init.sh <project-name> [--remote=<url>] [--cursor]" >&2
+  echo "       project-init.sh --existing <path-to-existing-project> [--remote=<url>] [--cursor]" >&2
   exit 1
 fi
 
 PROJECT_NAME="${POSITIONAL_ARGS[0]}"
 TEMPLATE_DIR="${TEMPLATE_DIR:?Set TEMPLATE_DIR to your canonical template files location}"
 
-# Prevent path traversal (e.g. ../../escape)
-if [[ "$PROJECT_NAME" == */* ]] || [[ "$PROJECT_NAME" == *\\* ]]; then
-  echo "Error: project name must not contain path separators." >&2
-  exit 1
-fi
+if $EXISTING; then
+  if [ ! -d "$PROJECT_NAME" ]; then
+    echo "Error: directory '$PROJECT_NAME' does not exist." >&2
+    echo "--existing requires a path to a project directory that already exists." >&2
+    exit 1
+  fi
+else
+  # Prevent path traversal (e.g. ../../escape)
+  if [[ "$PROJECT_NAME" == */* ]] || [[ "$PROJECT_NAME" == *\\* ]]; then
+    echo "Error: project name must not contain path separators." >&2
+    exit 1
+  fi
 
-if [ -d "$PROJECT_NAME" ]; then
-  echo "Error: directory '$PROJECT_NAME' already exists. Aborting." >&2
-  exit 1
+  if [ -d "$PROJECT_NAME" ]; then
+    echo "Error: directory '$PROJECT_NAME' already exists. Aborting." >&2
+    echo "Use --existing $PROJECT_NAME to add CAMP to it instead." >&2
+    exit 1
+  fi
 fi
 
 # Require git before doing anything
@@ -106,57 +126,151 @@ if [ ${#MISSING[@]} -gt 0 ]; then
 fi
 
 # ── Setup — clean up on any failure after directory creation ──────────────
+# Only applies when we created the directory ourselves; never rm -rf a
+# pre-existing project directory on failure.
 
-cleanup() {
-  echo "Error: setup failed. Removing partially-created directory '$PROJECT_NAME'." >&2
-  cd ..
-  rm -rf "$PROJECT_NAME"
-}
-trap cleanup ERR
+if ! $EXISTING; then
+  cleanup() {
+    echo "Error: setup failed. Removing partially-created directory '$PROJECT_NAME'." >&2
+    cd ..
+    rm -rf "$PROJECT_NAME"
+  }
+  trap cleanup ERR
+fi
 
 mkdir -p "$PROJECT_NAME"/memory/DECISIONS-ARCHIVE
 mkdir -p "$PROJECT_NAME"/memory/SESSIONS-ARCHIVE
-for skill in brief decide wrap-up plan-writer; do
-  mkdir -p "$PROJECT_NAME"/.claude/skills/$skill
-  mkdir -p "$PROJECT_NAME"/.cursor/skills/$skill
-done
-mkdir -p "$PROJECT_NAME"/.claude/hooks
-mkdir -p "$PROJECT_NAME"/.cursor/hooks
-mkdir -p "$PROJECT_NAME"/.github/workflows
 cd "$PROJECT_NAME"
+
+# Cursor support: in --existing mode, only touch .cursor/ if the project
+# already has one, or the user explicitly asked for it via --cursor. In
+# fresh-scaffold mode, behavior is unchanged — always scaffold Cursor too.
+if $EXISTING; then
+  if [ -d .cursor ] || [ "$CURSOR" = true ]; then
+    DO_CURSOR=true
+  else
+    DO_CURSOR=false
+  fi
+else
+  DO_CURSOR=true
+fi
+
+# ── Collision-safe write helpers ────────────────────────────────────────
+# TOUCHED tracks every path this run actually wrote (used for staging).
+# SKIPPED tracks paths that already existed and were left untouched.
+# In fresh-scaffold mode neither destination ever pre-exists, so these
+# behave exactly like an unconditional copy/write.
+
+TOUCHED=()
+SKIPPED=()
+PATCHED=()
+
+copy_if_absent() {
+  local src="$1" dst="${2#./}"
+  if [ -e "$dst" ]; then
+    SKIPPED+=("$dst")
+    return
+  fi
+  mkdir -p "$(dirname "$dst")"
+  cp "$src" "$dst"
+  TOUCHED+=("$dst")
+}
+
+write_if_absent() {
+  local dst="${1#./}" content="$2"
+  if [ -e "$dst" ]; then
+    SKIPPED+=("$dst")
+    return
+  fi
+  mkdir -p "$(dirname "$dst")"
+  printf '%s\n' "$content" > "$dst"
+  TOUCHED+=("$dst")
+}
+
+# Same as write_if_absent, but for local/gitignored preference files that
+# should never be staged or committed.
+write_if_absent_local() {
+  local dst="$1" content="$2"
+  if [ -e "$dst" ]; then
+    SKIPPED+=("$dst")
+    return
+  fi
+  mkdir -p "$(dirname "$dst")"
+  printf '%s\n' "$content" > "$dst"
+}
 
 # ── Copy canonical template files ─────────────────────────────────────────
 
-cp "$TEMPLATE_DIR/AGENTS.md"                  ./AGENTS.md
-cp "$TEMPLATE_DIR/HOW-TO-USE.md"              ./HOW-TO-USE.md
-cp "$TEMPLATE_DIR/memory/BRIEF-TEMPLATE.md"   ./memory/BRIEF-TEMPLATE.md
-cp "$TEMPLATE_DIR/memory/CONTEXT-SCHEMA.md"   ./memory/CONTEXT-SCHEMA.md
-cp "$TEMPLATE_DIR/memory/DECISIONS-SCHEMA.md" ./memory/DECISIONS-SCHEMA.md
-cp "$TEMPLATE_DIR/memory/SESSIONS-SCHEMA.md"  ./memory/SESSIONS-SCHEMA.md
+copy_if_absent "$TEMPLATE_DIR/AGENTS.md"                  ./AGENTS.md
+copy_if_absent "$TEMPLATE_DIR/HOW-TO-USE.md"              ./HOW-TO-USE.md
+copy_if_absent "$TEMPLATE_DIR/memory/BRIEF-TEMPLATE.md"   ./memory/BRIEF-TEMPLATE.md
+copy_if_absent "$TEMPLATE_DIR/memory/CONTEXT-SCHEMA.md"   ./memory/CONTEXT-SCHEMA.md
+copy_if_absent "$TEMPLATE_DIR/memory/DECISIONS-SCHEMA.md" ./memory/DECISIONS-SCHEMA.md
+copy_if_absent "$TEMPLATE_DIR/memory/SESSIONS-SCHEMA.md"  ./memory/SESSIONS-SCHEMA.md
 
 for skill in brief decide wrap-up plan-writer; do
-  cp "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.claude/skills/$skill/SKILL.md"
-  cp "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.cursor/skills/$skill/SKILL.md"
+  copy_if_absent "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.claude/skills/$skill/SKILL.md"
+  if $DO_CURSOR; then
+    copy_if_absent "$TEMPLATE_DIR/skills/$skill/SKILL.md" "./.cursor/skills/$skill/SKILL.md"
+  fi
 done
 
 for hook in plan-reminder plan-completion-check plan-immutability-check; do
-  cp "$TEMPLATE_DIR/skills/plan-writer/hooks/claude/$hook.sh" "./.claude/hooks/$hook.sh"
+  copy_if_absent "$TEMPLATE_DIR/skills/plan-writer/hooks/claude/$hook.sh" "./.claude/hooks/$hook.sh"
   chmod +x "./.claude/hooks/$hook.sh"
-  cp "$TEMPLATE_DIR/skills/plan-writer/hooks/cursor/$hook.sh" "./.cursor/hooks/$hook.sh"
-  chmod +x "./.cursor/hooks/$hook.sh"
+  if $DO_CURSOR; then
+    copy_if_absent "$TEMPLATE_DIR/skills/plan-writer/hooks/cursor/$hook.sh" "./.cursor/hooks/$hook.sh"
+    chmod +x "./.cursor/hooks/$hook.sh"
+  fi
 done
 
 # Claude-Code-only — no Cursor equivalent (policy targets Agent/Workflow
 # tool calls, which are Claude Code constructs).
-cp "$TEMPLATE_DIR/hooks/claude/subagent-model-policy-check.sh" "./.claude/hooks/subagent-model-policy-check.sh"
+copy_if_absent "$TEMPLATE_DIR/hooks/claude/subagent-model-policy-check.sh" "./.claude/hooks/subagent-model-policy-check.sh"
 chmod +x "./.claude/hooks/subagent-model-policy-check.sh"
 
 # CI check — inert until a remote + PR workflow exist; harmless either way.
-cp "$TEMPLATE_DIR/.github/workflows/memory-id-check.yml" "./.github/workflows/memory-id-check.yml"
+copy_if_absent "$TEMPLATE_DIR/.github/workflows/memory-id-check.yml" "./.github/workflows/memory-id-check.yml"
 
 # ── Hook registration ──────────────────────────────────────────────────────
+# If settings.json / hooks.json don't exist yet, write them fresh (as
+# before). If they already exist — the common case for --existing — patch
+# in only the hook entries that are missing, leaving everything else in the
+# file alone.
 
-cat > .claude/settings.json << 'JSON'
+patch_claude_settings_hook() {
+  local event="$1" matcher="$2" cmd="$3" mode="$4"
+  python3 - .claude/settings.json "$event" "$matcher" "$cmd" "$mode" <<'PY'
+import json, sys
+
+path, event, matcher, cmd, mode = sys.argv[1:6]
+with open(path) as f:
+    data = json.load(f)
+
+hooks = data.setdefault("hooks", {})
+arr = hooks.setdefault(event, [])
+
+found = any(
+    h.get("command") == cmd
+    for group in arr
+    for h in group.get("hooks", [])
+)
+if not found:
+    entry = {"hooks": [{"type": "command", "command": cmd}]}
+    if matcher:
+        entry["matcher"] = matcher
+    if mode == "prepend":
+        arr.insert(0, entry)
+    else:
+        arr.append(entry)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+PY
+}
+
+if [ ! -f .claude/settings.json ]; then
+  cat > .claude/settings.json << 'JSON'
 {
   "hooks": {
     "PreToolUse": [
@@ -203,8 +317,48 @@ cat > .claude/settings.json << 'JSON'
   }
 }
 JSON
+  TOUCHED+=(".claude/settings.json")
+else
+  patch_claude_settings_hook "PreToolUse"  "Edit|Write|MultiEdit" "bash .claude/hooks/plan-immutability-check.sh"     prepend
+  patch_claude_settings_hook "PreToolUse"  "Agent|Workflow"       "bash .claude/hooks/subagent-model-policy-check.sh" append
+  patch_claude_settings_hook "PostToolUse" "Edit|Write|MultiEdit" "bash .claude/hooks/plan-reminder.sh"               append
+  patch_claude_settings_hook "Stop"        ""                     "bash .claude/hooks/plan-completion-check.sh"       append
+  TOUCHED+=(".claude/settings.json")
+  PATCHED+=(".claude/settings.json")
+fi
 
-cat > .cursor/hooks.json << 'JSON'
+if $DO_CURSOR; then
+  patch_cursor_hooks() {
+    local event="$1" matcher="$2" cmd="$3" mode="$4"
+    python3 - .cursor/hooks.json "$event" "$matcher" "$cmd" "$mode" <<'PY'
+import json, sys
+
+path, event, matcher, cmd, mode = sys.argv[1:6]
+with open(path) as f:
+    data = json.load(f)
+
+hooks = data.setdefault("hooks", {})
+arr = hooks.setdefault(event, [])
+
+found = any(h.get("command") == cmd for h in arr)
+if not found:
+    entry = {"command": cmd}
+    if matcher:
+        entry["matcher"] = matcher
+    if event == "stop":
+        entry["loop_limit"] = None
+    if mode == "prepend":
+        arr.insert(0, entry)
+    else:
+        arr.append(entry)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+PY
+  }
+
+  if [ ! -f .cursor/hooks.json ]; then
+    cat > .cursor/hooks.json << 'JSON'
 {
   "version": 1,
   "hooks": {
@@ -229,38 +383,76 @@ cat > .cursor/hooks.json << 'JSON'
   }
 }
 JSON
+    TOUCHED+=(".cursor/hooks.json")
+  else
+    patch_cursor_hooks "preToolUse"  "Write|StrReplace|Delete" ".cursor/hooks/plan-immutability-check.sh" prepend
+    patch_cursor_hooks "postToolUse" "Write|StrReplace"        ".cursor/hooks/plan-reminder.sh"           append
+    patch_cursor_hooks "stop"        ""                        ".cursor/hooks/plan-completion-check.sh"  append
+    TOUCHED+=(".cursor/hooks.json")
+    PATCHED+=(".cursor/hooks.json")
+  fi
+fi
 
-# Symlink — guard against re-run collision
-if [ ! -L CLAUDE.md ]; then
+# ── CLAUDE.md ────────────────────────────────────────────────────────────
+# Highest-risk collision: an existing project almost always already has one.
+# Never overwrite real content — only symlink when nothing is there yet.
+
+CLAUDE_WARN=false
+if [ -L CLAUDE.md ] && [ "$(readlink CLAUDE.md)" = "AGENTS.md" ]; then
+  : # already correctly symlinked — idempotent re-run, nothing to do
+elif [ -e CLAUDE.md ]; then
+  SKIPPED+=("CLAUDE.md")
+  CLAUDE_WARN=true
+else
   ln -s AGENTS.md CLAUDE.md
+  TOUCHED+=("CLAUDE.md")
 fi
 
 # ── Stub files — content is written by skills, not this script ────────────
 # One-line comment in each file points to its schema so they're not blank.
+# Never overwrites real memory content if it's already there.
 
-echo "# See memory/BRIEF-TEMPLATE.md — content written by \`brief\` skill" \
-  > memory/BRIEF.md
-echo "# See memory/CONTEXT-SCHEMA.md — content written by \`wrap-up\` skill" \
-  > memory/CONTEXT.md
-echo "# See memory/DECISIONS-SCHEMA.md — content written by \`decide\` skill" \
-  > memory/DECISIONS.md
-echo "# See memory/SESSIONS-SCHEMA.md — content written by \`wrap-up\` skill" \
-  > memory/SESSIONS.md
+write_if_absent memory/BRIEF.md     "# See memory/BRIEF-TEMPLATE.md — content written by \`brief\` skill"
+write_if_absent memory/CONTEXT.md   "# See memory/CONTEXT-SCHEMA.md — content written by \`wrap-up\` skill"
+write_if_absent memory/DECISIONS.md "# See memory/DECISIONS-SCHEMA.md — content written by \`decide\` skill"
+write_if_absent memory/SESSIONS.md  "# See memory/SESSIONS-SCHEMA.md — content written by \`wrap-up\` skill"
 
 # ── Gitignore ─────────────────────────────────────────────────────────────
+# If absent, create it as before. If present, append only the lines that
+# are actually missing, rather than overwriting the file.
 
-cat > .gitignore << 'GITIGNORE'
+if [ ! -f .gitignore ]; then
+  cat > .gitignore << 'GITIGNORE'
 # Local attribution preference — not project policy
 .claude/settings.local.json
 GITIGNORE
 
-if [ "$CURSOR" = true ]; then
-  cat >> .gitignore << 'GITIGNORE'
+  if [ "$CURSOR" = true ]; then
+    cat >> .gitignore << 'GITIGNORE'
 
 # Cursor local settings — not project policy
 .cursor/settings.json
 .cursor/cli-config.json
 GITIGNORE
+  fi
+  TOUCHED+=(".gitignore")
+else
+  GITIGNORE_LINES=(".claude/settings.local.json")
+  if [ "$CURSOR" = true ]; then
+    GITIGNORE_LINES+=(".cursor/settings.json" ".cursor/cli-config.json")
+  fi
+  GITIGNORE_CHANGED=false
+  for line in "${GITIGNORE_LINES[@]}"; do
+    if ! grep -qxF "$line" .gitignore; then
+      echo "$line" >> .gitignore
+      GITIGNORE_CHANGED=true
+    fi
+  done
+  if $GITIGNORE_CHANGED; then
+    TOUCHED+=(".gitignore")
+  else
+    SKIPPED+=(".gitignore (already covers CAMP's local files)")
+  fi
 fi
 
 # ── Attribution setting ────────────────────────────────────────────────────
@@ -269,25 +461,22 @@ fi
 # It is NOT committed to git (personal preference, not project policy).
 # To disable attribution entirely, leave both values as empty strings "".
 # To keep it, delete this file or set values to your preferred text.
+# Never overwritten if the project already has a local preference set.
 
-cat > .claude/settings.local.json << 'JSON'
-{
+write_if_absent_local .claude/settings.local.json '{
   "attribution": {
     "commit": "",
     "pr": ""
   }
-}
-JSON
+}'
 
-if [ "$CURSOR" = true ]; then
-  cat > .cursor/cli-config.json << 'JSON'
-{
+if $DO_CURSOR && [ "$CURSOR" = true ]; then
+  write_if_absent_local .cursor/cli-config.json '{
   "attribution": {
     "attributeCommitsToAgent": false,
     "attributePRsToAgent": false
   }
-}
-JSON
+}'
 fi
 
 # ── Git setup ──────────────────────────────────────────────────────────────
@@ -314,13 +503,54 @@ if [ ${#IGNORED[@]} -gt 0 ]; then
   exit 1
 fi
 
-# Initial commit — per AGENTS.md git integration section.
-# Note: .claude/settings.local.json is intentionally excluded (listed in .gitignore).
-git add AGENTS.md CLAUDE.md HOW-TO-USE.md .gitignore memory/ .claude/skills/ .cursor/skills/ .claude/hooks/ .cursor/hooks/ .claude/settings.json .cursor/hooks.json .github/workflows/
-git commit -m "chore(memory): initial scaffold"
+# In --existing mode, warn about (but don't block on) unrelated uncommitted
+# work already sitting in the project — the commit below stages only the
+# CAMP paths this run touched, never a blanket `git add`.
+if $EXISTING; then
+  OTHER_DIRTY=()
+  while IFS= read -r line; do
+    f="${line:3}"
+    is_touched=false
+    for t in "${TOUCHED[@]}"; do
+      if [ "$f" = "$t" ]; then
+        is_touched=true
+        break
+      fi
+    done
+    $is_touched || OTHER_DIRTY+=("$f")
+  done < <(git status --porcelain --untracked-files=all 2>/dev/null || true)
+
+  if [ ${#OTHER_DIRTY[@]} -gt 0 ]; then
+    echo "Warning: these files have uncommitted changes unrelated to the CAMP scaffold:" >&2
+    for f in "${OTHER_DIRTY[@]}"; do
+      echo "  - $f" >&2
+    done
+    echo "They will not be touched or included in the scaffold commit below." >&2
+  fi
+fi
+
+# Initial commit — per AGENTS.md git integration section. Stages only the
+# paths this run actually wrote (never `git add .`/`-A`).
+# Note: .claude/settings.local.json and .cursor/cli-config.json are
+# intentionally excluded — they're local preference files, not staged.
+if [ ${#TOUCHED[@]} -gt 0 ]; then
+  git add "${TOUCHED[@]}"
+fi
+
+if ! git diff --cached --quiet 2>/dev/null; then
+  if $EXISTING; then
+    git commit -m "chore(memory): add CAMP scaffold to existing project"
+  else
+    git commit -m "chore(memory): initial scaffold"
+  fi
+else
+  echo "Nothing new to stage — CAMP scaffold already present, no commit made."
+fi
 
 # Disable the cleanup trap now that setup succeeded
-trap - ERR
+if ! $EXISTING; then
+  trap - ERR
+fi
 
 # ── Register project in template registry ─────────────────────────────────
 
@@ -339,15 +569,48 @@ fi
 # ── Remote ─────────────────────────────────────────────────────────────────
 
 if [ -n "$REMOTE_URL" ]; then
-  git remote add origin "$REMOTE_URL"
+  if git remote get-url origin &>/dev/null; then
+    echo "Note: remote 'origin' already set to $(git remote get-url origin) — leaving unchanged."
+  else
+    git remote add origin "$REMOTE_URL"
+  fi
 fi
 
 # ── Done ───────────────────────────────────────────────────────────────────
 
 echo ""
-echo "CAMP project '$PROJECT_NAME' scaffolded successfully."
+if $EXISTING; then
+  echo "CAMP scaffolded into existing project '$PROJECT_NAME' successfully."
+else
+  echo "CAMP project '$PROJECT_NAME' scaffolded successfully."
+fi
 echo ""
-echo "Attribution: .claude/settings.local.json sets attribution to disabled."
+
+if [ ${#SKIPPED[@]} -gt 0 ]; then
+  echo "Skipped (already present, left untouched):"
+  for f in "${SKIPPED[@]}"; do
+    echo "  - $f"
+  done
+  echo ""
+fi
+
+if [ ${#PATCHED[@]} -gt 0 ]; then
+  echo "Patched (already existed — missing hook entries merged in, rest left as-is):"
+  for f in "${PATCHED[@]}"; do
+    echo "  - $f"
+  done
+  echo ""
+fi
+
+if $CLAUDE_WARN; then
+  echo "CLAUDE.md already exists and was left untouched — CAMP's protocol lives"
+  echo "in AGENTS.md instead. Add a reference to AGENTS.md from your existing"
+  echo "CLAUDE.md manually if you want it loaded automatically."
+  echo ""
+fi
+
+echo "Attribution: .claude/settings.local.json sets attribution to disabled"
+echo "(unless one already existed, in which case it was left as-is)."
 echo "Edit or delete this file to change that preference (not committed to git)."
 echo ""
 echo "Hooks:       .claude/hooks/ and .cursor/hooks/ scaffolded with plan-writer enforcement hooks."
@@ -367,8 +630,8 @@ echo "    -f enforce_admins=true \\"
 echo "    -f 'required_pull_request_reviews[required_approving_review_count]=0' \\"
 echo "    -f restrictions=null"
 echo ""
-if [ "$CURSOR" = true ]; then
-  echo "Cursor:      Attribution config written to .cursor/cli-config.json."
+if $DO_CURSOR; then
+  echo "Cursor:      .cursor/ scaffolded/patched alongside .claude/."
   echo ""
 fi
 if [ -n "$REMOTE_URL" ]; then

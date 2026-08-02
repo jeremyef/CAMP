@@ -39,7 +39,8 @@ confirmed.
 **Requires:** `git`, `gh` (optional — only for the branch-protection step
 printed at the end of init), and `python3` (used by the Cursor
 plan-immutability hook, the subagent-model-policy hook, and by
-`projects-sync.sh` to patch existing hook config files).
+`projects-sync.sh` and `project-init.sh --existing` to patch existing hook
+config files).
 
 <details>
 <summary>What a project looks like after init</summary>
@@ -91,6 +92,33 @@ my-project/
 ```
 
 </details>
+
+### Adding CAMP to an existing project
+
+```bash
+TEMPLATE_DIR=~/CAMP ~/CAMP/project-init.sh --existing /path/to/existing-project
+```
+> Same scaffold, but collision-safe: any file that already exists at a
+> destination path (`CLAUDE.md`, `.gitignore`, memory files, skills, etc.)
+> is left untouched and reported as skipped rather than overwritten.
+> `.claude/settings.json` and `.cursor/hooks.json` are the exception — if
+> they already exist, CAMP's hook entries are merged in alongside whatever
+> is already registered, rather than being skipped or overwritten wholesale.
+> `--cursor` and `--remote=<url>` work the same as in fresh-init mode.
+> `.cursor/` is only touched if the project already has one, or `--cursor`
+> is passed explicitly.
+
+`CLAUDE.md` is the one file CAMP won't attempt to merge automatically —
+almost every existing project already has one with real content, and
+overwriting it would destroy your existing instructions. If it's already
+there, `project-init.sh` leaves it alone and prints a reminder to add a
+manual reference to `AGENTS.md` from it yourself.
+
+The scaffold commit is staged from only the specific paths this run wrote —
+never a blanket `git add`— and the script warns (without blocking) if it
+finds other uncommitted changes already sitting in the project. Re-running
+`--existing` against an already-scaffolded project is idempotent: nothing
+to stage means no commit is made.
 
 ---
 

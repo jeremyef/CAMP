@@ -53,6 +53,14 @@ This creates the directory structure, copies the schema and template files, crea
 
 `project-init.sh` scaffolds the four skills into `.claude/skills/` and `.cursor/skills/` automatically — no separate install step.
 
+**Adding CAMP to a project that already exists?** Use `--existing` instead of a new project name:
+
+```bash
+TEMPLATE_DIR=/path/to/your/templates ./project-init.sh --existing /path/to/existing-project
+```
+
+This runs the same scaffold but never overwrites a file that's already there — it skips anything that already exists (reporting what it skipped) and, for `.claude/settings.json`/`.cursor/hooks.json`, merges CAMP's hook entries in alongside whatever's already registered instead of skipping or overwriting. `CLAUDE.md` is left alone if one already exists, since it almost certainly holds real project instructions — you'll get a reminder to reference `AGENTS.md` from it manually. The commit at the end only stages what this run actually wrote, never a blanket `git add`, and re-running it against an already-scaffolded project is a no-op.
+
 Then run `brief` to fill out BRIEF.md before doing any other work. The skill will ask which optional sections apply, walk through each gated section, and only write the file once everything is confirmed. The first SESSIONS.md entry is written automatically at the end of this step.
 
 ---
