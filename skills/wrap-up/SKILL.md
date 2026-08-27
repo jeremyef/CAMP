@@ -29,20 +29,31 @@ Summary either way.
 
 Untracked plan file check: after the decisions check, if `.claude/plans/`
 exists run `git ls-files --others .claude/plans/` to find untracked
-plan files. If any are found, surface them as a protocol error —
-distinct from ordinary uncommitted files:
-"These plan files are untracked and have not been formally approved:
-  <list>
-Commit each with `chore(plan): <slug>` before proceeding. An untracked
-plan is not an approved plan (see plan-writer step 5)."
-Do not bundle this with the general dirty files question below — it
-requires its own response and commit before wrap-up continues.
+plan files. Read each one's `Status:` line before deciding what to do:
+- `Approved`, `In Progress`, or `Complete` and still untracked is a
+  protocol error — plan-writer Step 5 should have committed it at
+  approval time and didn't. Surface it distinctly from ordinary
+  uncommitted files:
+  "These plan files are Approved (or later) but were never committed
+  as required at approval time:
+    <list>
+  Commit each with `chore(plan): <slug>` before proceeding (plan-writer
+  step 5)." Do not bundle this with the general dirty files question
+  below — it requires its own response and commit before wrap-up
+  continues.
+- `Draft` and untracked is expected, not an error — plan-writer's own
+  rule is that a plan stays untracked until approved. Do not raise it
+  separately here. Instead fold its path into the "Uncommitted code
+  check" below as if it were any other dirty file.
 
-Uncommitted code check: after the untracked plan check, check whether
-any non-memory files are dirty or staged in the working tree. If any
-are found, surface the list of dirty file paths and ask: "These
-non-memory files are uncommitted — commit them first, or proceed with
-wrap-up?" Wait for an explicit answer. Do not auto-continue.
+Uncommitted code check: after the untracked plan check, run
+`git status --porcelain` to find any non-memory files that are dirty,
+staged, or untracked (this must include untracked files — a Draft plan
+from the check above needs to appear here, not silently drop out of
+both checks). If any are found, surface the list of file paths and
+ask: "These non-memory files are uncommitted — commit them first, or
+proceed with wrap-up?" Wait for an explicit answer. Do not
+auto-continue.
 
 ## Session boundary
 A SESSIONS.md entry covers everything from the previous `wrap-up`

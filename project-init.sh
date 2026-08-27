@@ -425,6 +425,9 @@ if [ ! -f .gitignore ]; then
   cat > .gitignore << 'GITIGNORE'
 # Local attribution preference — not project policy
 .claude/settings.local.json
+
+# plan-reminder hook's per-session dedupe markers — not project state
+.claude/.reminders/
 GITIGNORE
 
   if [ "$CURSOR" = true ]; then
@@ -433,13 +436,16 @@ GITIGNORE
 # Cursor local settings — not project policy
 .cursor/settings.json
 .cursor/cli-config.json
+
+# plan-reminder hook's per-session dedupe markers — not project state
+.cursor/.reminders/
 GITIGNORE
   fi
   TOUCHED+=(".gitignore")
 else
-  GITIGNORE_LINES=(".claude/settings.local.json")
+  GITIGNORE_LINES=(".claude/settings.local.json" ".claude/.reminders/")
   if [ "$CURSOR" = true ]; then
-    GITIGNORE_LINES+=(".cursor/settings.json" ".cursor/cli-config.json")
+    GITIGNORE_LINES+=(".cursor/settings.json" ".cursor/cli-config.json" ".cursor/.reminders/")
   fi
   GITIGNORE_CHANGED=false
   for line in "${GITIGNORE_LINES[@]}"; do
