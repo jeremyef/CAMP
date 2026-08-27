@@ -350,6 +350,31 @@ JSON
     fi
   fi
 
+  # Ensure the plan-reminder hook's dedupe-marker dirs are gitignored.
+  # Append-only, like project-init.sh's gitignore step — never overwrite.
+  GITIGNORE_LINES=(".claude/.reminders/")
+  if [ -d "$PROJECT/.cursor" ]; then
+    GITIGNORE_LINES+=(".cursor/.reminders/")
+  fi
+  if $DRY_RUN; then
+    for line in "${GITIGNORE_LINES[@]}"; do
+      if [ ! -f "$PROJECT/.gitignore" ] || ! grep -qxF "$line" "$PROJECT/.gitignore" 2>/dev/null; then
+        echo "  [dry-run] would add to .gitignore: $line"
+      fi
+    done
+  else
+    GITIGNORE_CHANGED=false
+    for line in "${GITIGNORE_LINES[@]}"; do
+      if [ ! -f "$PROJECT/.gitignore" ] || ! grep -qxF "$line" "$PROJECT/.gitignore" 2>/dev/null; then
+        echo "$line" >> "$PROJECT/.gitignore"
+        GITIGNORE_CHANGED=true
+      fi
+    done
+    if $GITIGNORE_CHANGED; then
+      SYNC_TARGETS+=("$PROJECT/.gitignore")
+    fi
+  fi
+
   # Auto-commit synced files (skipped in dry-run, if --no-commit, or no git repo)
   if ! $DRY_RUN && ! $NO_COMMIT && [ -d "$PROJECT/.git" ] && [ ${#SYNC_TARGETS[@]} -gt 0 ]; then
     (
