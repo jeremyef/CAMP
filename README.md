@@ -393,11 +393,3 @@ memory files as Project Knowledge, and copy skill output back manually.
 ## License
 
 MIT — see [LICENSE](./LICENSE).
-
----
-
-## Related
-
-Want the Plan → Implement → Validate agentic workflow layer (gnhf,
-treehouse, firstmate, no-mistakes, Lavish) on top of this? See
-[CAMP-agentic](https://github.com/jeremyef/CAMP-agentic).
