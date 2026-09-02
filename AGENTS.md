@@ -60,10 +60,15 @@ Steps, before responding to the user's actual request:
 3. Read memory/CONTEXT.md.
 4. Read the memory/DECISIONS.md index (or full file if no index exists yet).
 5. Read the last 3 entries of memory/SESSIONS.md.
-6. Phase-transition check: compare the BRIEF.md version noted in step 2
-   against the Brief version field in the most recent SESSIONS.md entry
-   (added in step 5). If the MAJOR version has increased since the last
-   session, announce this to the user before proceeding:
+6. Phase-transition check: apply the exact same detection mechanism,
+   comparison target, and base case defined in skills/wrap-up/SKILL.md's
+   "Phase-transition detection" section — that file is the single
+   source of truth for how this comparison works; do not reimplement
+   or restate it here. Use the BRIEF.md version already noted in step 2
+   and the CONTEXT.md content already read in step 3 rather than
+   re-reading either file. If that mechanism indicates the MAJOR
+   version has increased since the last session, announce this to the
+   user before proceeding:
    "BRIEF.md is now at vX.Y.Z (new phase). Deferred decisions that are
    now in scope were surfaced when `brief` ran — check DECISIONS.md
    index for Deferred-and-unresolved entries. Some Active decisions from

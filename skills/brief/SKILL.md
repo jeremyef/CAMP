@@ -136,6 +136,13 @@ write discipline. Assemble and write in one operation.
 
 ## After writing
 
+Every entry written below must satisfy memory/SESSIONS-SCHEMA.md in
+full, including the `Brief version` field — the templates below are
+illustrative, not an exhaustive substitute for the schema. If the
+schema later adds or renames a required field, this entry must carry
+that field too, even though the templates below won't have been
+updated to show it.
+
 For a new project — read memory/SESSIONS.md to get the next SESS-ID
 (or use SESS-001 only if SESSIONS.md is confirmed empty or absent).
 Write the first entry immediately before any other work begins:
@@ -145,6 +152,7 @@ Write the first entry immediately before any other work begins:
 
 Summary: Initial brief drafted and confirmed at v1.0.0.
 
+Brief version: v1.0.0
 Decisions: None
 
 Next steps: Project is ready for first working session.
@@ -163,6 +171,7 @@ Summary: Brief revised to vX.Y.Z — phase transition to [name].
 Scope expanded to include [new In items]. [Former Out items now In].
 Success criteria updated to reflect new phase targets.
 
+Brief version: vX.Y.Z
 Decisions: <DEC-NNN if triggered by decide handoff, or "None">
 
 Next steps: <whatever applies, or "None">

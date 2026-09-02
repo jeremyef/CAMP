@@ -64,7 +64,11 @@ covers only the work since the prior entry — not the whole session.
 ## Writing memory/SESSIONS.md
 Read the current SESSIONS.md to determine the next SESS-ID before
 writing. Read the Brief version field from the most recent entry (if
-one exists) — this is used for the phase-transition check below.
+one exists) — this is used for the Next-steps staleness scan's
+current-phase scoping below, not for phase-transition detection
+(that check uses CONTEXT.md instead — see below — because `brief`
+can also write directly to SESSIONS.md, which would make a
+SESSIONS.md-based comparison unreliable).
 Append one new entry following memory/SESSIONS-SCHEMA.md exactly —
 Summary, Brief version (current BRIEF.md version), Decisions,
 Files touched (omit if none), Next steps. This is append-only —
@@ -72,12 +76,20 @@ never edit a past entry.
 
 ## Phase-transition detection
 Before running staleness checks or writing CONTEXT.md, compare the
-current BRIEF.md version against the Brief version field from the
-most recent SESSIONS.md entry. If the MAJOR version has increased
-(e.g., v1.x.x → v2.0.0), this is the first session of a new phase.
-Flag this at the start of wrap-up's output: "This is the first
-session wrap-up in phase [vX.0.0]. Applying phase-transition reset
-to CONTEXT.md."
+current BRIEF.md version against the version recorded in CONTEXT.md's
+existing state pointer line (`[YYYY-MM-DD] [vX.Y.Z] <summary>`) — read
+this from CONTEXT.md as it stands before this wrap-up run overwrites
+it, not from SESSIONS.md. CONTEXT.md is a file only `wrap-up` ever
+writes, so its state pointer always reflects the phase `wrap-up` last
+recorded, regardless of any SESSIONS.md entry `brief` may have written
+in between. If CONTEXT.md does not yet exist or has no state pointer
+(the first `wrap-up` run of a new project), skip this check — there
+is no prior phase to compare against.
+
+If the MAJOR version has increased (e.g., v1.x.x → v2.0.0), this is
+the first session of a new phase. Flag this at the start of wrap-up's
+output: "This is the first session wrap-up in phase [vX.0.0]. Applying
+phase-transition reset to CONTEXT.md."
 
 Phase-transition resets (applied only when a new phase is detected):
 - Staleness counters reset: the 3-session counts for both Open

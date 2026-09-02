@@ -41,9 +41,10 @@ Examples of acceptable state pointers:
   [2026-08-10] [v2.0.0] Blocked on API credentials from third-party vendor.
 
 ## Phase-transition reset
-When the first `wrap-up` of a new phase runs (detected by comparing
-the current BRIEF.md version against the Brief version in the most
-recent SESSIONS.md entry — a MAJOR version increase means a new phase):
+When the first `wrap-up` of a new phase runs — see skills/wrap-up/SKILL.md
+"Phase-transition detection" for how this is detected; that file is
+the single source of truth for the detection mechanism, not this
+schema — the following resets apply:
 
 1. Do not carry Open Questions forward automatically. Review each item:
    - If it's relevant to the new phase's scope, carry it forward.
