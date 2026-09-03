@@ -350,9 +350,36 @@ JSON
     fi
   fi
 
+  # Refresh .camp-version's synced_commit/synced_at to this template's
+  # current HEAD. last_checked_at is preserved as-is (or set to today if
+  # the file didn't exist yet) — it tracks AGENTS.md's own weekly check
+  # cadence and isn't reset just because a sync happened. This file is
+  # local/gitignored (see project-init.sh) — never added to SYNC_TARGETS,
+  # never staged or committed.
+  TEMPLATE_REMOTE="$(git -C "$TEMPLATE_DIR" remote get-url origin 2>/dev/null || true)"
+  TEMPLATE_COMMIT="$(git -C "$TEMPLATE_DIR" rev-parse --short HEAD 2>/dev/null || true)"
+  TODAY="$(date +%Y-%m-%d)"
+  CAMP_VERSION_FILE="$PROJECT/.camp-version"
+  if [ -f "$CAMP_VERSION_FILE" ]; then
+    LAST_CHECKED="$(grep '^last_checked_at:' "$CAMP_VERSION_FILE" | sed 's/^last_checked_at: *//')"
+  fi
+  LAST_CHECKED="${LAST_CHECKED:-$TODAY}"
+  NEW_CAMP_VERSION="template_repo: $TEMPLATE_REMOTE
+synced_commit: $TEMPLATE_COMMIT
+synced_at: $TODAY
+last_checked_at: $LAST_CHECKED"
+  if $DRY_RUN; then
+    if [ ! -f "$CAMP_VERSION_FILE" ] || [ "$(cat "$CAMP_VERSION_FILE")" != "$NEW_CAMP_VERSION" ]; then
+      echo "  [dry-run] would update: $CAMP_VERSION_FILE"
+    fi
+  else
+    printf '%s\n' "$NEW_CAMP_VERSION" > "$CAMP_VERSION_FILE"
+  fi
+  unset LAST_CHECKED
+
   # Ensure the plan-reminder hook's dedupe-marker dirs are gitignored.
   # Append-only, like project-init.sh's gitignore step — never overwrite.
-  GITIGNORE_LINES=(".claude/.reminders/")
+  GITIGNORE_LINES=(".camp-version" ".claude/.reminders/")
   if [ -d "$PROJECT/.cursor" ]; then
     GITIGNORE_LINES+=(".cursor/.reminders/")
   fi

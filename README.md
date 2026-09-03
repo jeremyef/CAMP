@@ -50,7 +50,8 @@ my-project/
 ├── AGENTS.md                        ← protocol (from this repo)
 ├── CLAUDE.md                        → symlink to AGENTS.md
 ├── HOW-TO-USE.md                    ← day-to-day guide (from this repo)
-├── .gitignore                       ← excludes .claude/settings.local.json
+├── .gitignore                       ← excludes .claude/settings.local.json, .camp-version
+├── .camp-version                    ← local template-sync tracking (not committed)
 ├── .claude/
 │   ├── settings.json                ← registers the hooks below
 │   ├── settings.local.json          ← attribution setting (not committed)
@@ -345,6 +346,13 @@ cp projects.example.txt projects.txt
 > `.github/workflows/memory-id-check.yml`, and patches (or creates, if
 > missing) `.claude/settings.json` / `.cursor/hooks.json` so the hooks
 > stay registered. Commits the changes in each project automatically.
+
+`projects-sync.sh` also refreshes each project's local `.camp-version` file
+with the template's current commit. `AGENTS.md`'s session-start protocol
+reads that file (at most once a week) and prints a low-key, non-blocking
+note if a project's CAMP files have fallen behind the template — never a
+question, never enforced, and silent if the check can't run at all (no
+network, no credentials, no `.camp-version` yet).
 
 ```bash
 ./projects-sync.sh --dry-run   # preview changes, write nothing

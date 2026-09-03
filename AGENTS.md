@@ -75,6 +75,25 @@ Steps, before responding to the user's actual request:
    the previous phase may also warrant review against the new scope."
    Do not skip this check or announce it mid-conversation — it belongs
    at session start only.
+7. Upstream template check — weekly, best-effort, never blocks: if
+   .camp-version exists at the project root and its template_repo field
+   is non-empty, and last_checked_at is 7 or more days ago, run
+   `timeout 5 git ls-remote <template_repo> main` (drop the `timeout 5`
+   prefix only if that command isn't available on this machine — never
+   let a hung network call delay the response). If it returns a commit
+   that differs from
+   synced_commit, print exactly this line before continuing: "Note:
+   this project's CAMP files are behind the template. Not urgent —
+   re-run `projects-sync.sh` from the template whenever convenient."
+   Afterward, update last_checked_at to today regardless of outcome —
+   whether the check found a difference, found none, or failed for any
+   reason (no network, no credentials, timeout, missing file). Never
+   touch synced_commit or synced_at here; only projects-sync.sh sets
+   those. Any failure is swallowed silently — never surface an error or
+   delay the response to the user's actual request. .camp-version is
+   local/gitignored, not part of the memory/ system, so this update is
+   outside the Skill ownership and Staging discipline sections below —
+   it is never staged or committed by this or any other step.
 Do not skip steps even if the user's first message seems unrelated to
 past work.
 

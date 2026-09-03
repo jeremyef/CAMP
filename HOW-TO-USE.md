@@ -49,7 +49,7 @@ Run the project-init script once:
 TEMPLATE_DIR=/path/to/your/templates ./project-init.sh my-project-name
 ```
 
-This creates the directory structure, copies the schema and template files, creates the AGENTS.md/CLAUDE.md symlink, writes empty stub files for the four memory files, sets up git, and writes an initial commit. It also creates `.claude/settings.local.json` with commit attribution disabled — edit or delete that file if you want Claude Code to append Co-Authored-By trailers to commits.
+This creates the directory structure, copies the schema and template files, creates the AGENTS.md/CLAUDE.md symlink, writes empty stub files for the four memory files, sets up git, and writes an initial commit. It also creates `.claude/settings.local.json` with commit attribution disabled — edit or delete that file if you want Claude Code to append Co-Authored-By trailers to commits. It also writes a local, gitignored `.camp-version` file recording which template commit the project was scaffolded from, so later sessions can quietly note if the template has since moved on (see "Keeping projects in sync" in README.md).
 
 `project-init.sh` scaffolds the four skills into `.claude/skills/` and `.cursor/skills/` automatically — no separate install step.
 

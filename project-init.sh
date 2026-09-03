@@ -417,6 +417,25 @@ write_if_absent memory/CONTEXT.md   "# See memory/CONTEXT-SCHEMA.md — content 
 write_if_absent memory/DECISIONS.md "# See memory/DECISIONS-SCHEMA.md — content written by \`decide\` skill"
 write_if_absent memory/SESSIONS.md  "# See memory/SESSIONS-SCHEMA.md — content written by \`wrap-up\` skill"
 
+# ── CAMP version tracking ──────────────────────────────────────────────────
+# Records which template commit this project was last synced from, so
+# AGENTS.md's session-start check can tell if the template has moved on.
+# template_repo is left blank if TEMPLATE_DIR has no origin remote (e.g. a
+# local-only template) — AGENTS.md's check skips silently when it's blank.
+# Local/gitignored like settings.local.json: last_checked_at updates weekly
+# as a side effect of that check, and committing that churn on a schedule
+# unrelated to any real project change would make it a permanent source of
+# "uncommitted files" noise in wrap-up's dirty-file check.
+
+TEMPLATE_REMOTE="$(cd "$TEMPLATE_DIR" && git remote get-url origin 2>/dev/null || true)"
+TEMPLATE_COMMIT="$(cd "$TEMPLATE_DIR" && git rev-parse --short HEAD 2>/dev/null || true)"
+TODAY="$(date +%Y-%m-%d)"
+
+write_if_absent_local .camp-version "template_repo: $TEMPLATE_REMOTE
+synced_commit: $TEMPLATE_COMMIT
+synced_at: $TODAY
+last_checked_at: $TODAY"
+
 # ── Gitignore ─────────────────────────────────────────────────────────────
 # If absent, create it as before. If present, append only the lines that
 # are actually missing, rather than overwriting the file.
@@ -425,6 +444,9 @@ if [ ! -f .gitignore ]; then
   cat > .gitignore << 'GITIGNORE'
 # Local attribution preference — not project policy
 .claude/settings.local.json
+
+# Local CAMP template-sync tracking — not project policy
+.camp-version
 
 # plan-reminder hook's per-session dedupe markers — not project state
 .claude/.reminders/
@@ -443,7 +465,7 @@ GITIGNORE
   fi
   TOUCHED+=(".gitignore")
 else
-  GITIGNORE_LINES=(".claude/settings.local.json" ".claude/.reminders/")
+  GITIGNORE_LINES=(".claude/settings.local.json" ".camp-version" ".claude/.reminders/")
   if [ "$CURSOR" = true ]; then
     GITIGNORE_LINES+=(".cursor/settings.json" ".cursor/cli-config.json" ".cursor/.reminders/")
   fi
@@ -618,6 +640,10 @@ fi
 echo "Attribution: .claude/settings.local.json sets attribution to disabled"
 echo "(unless one already existed, in which case it was left as-is)."
 echo "Edit or delete this file to change that preference (not committed to git)."
+echo ""
+echo "Version tracking: .camp-version records the template commit this project"
+echo "was scaffolded from (not committed to git). AGENTS.md checks it weekly and"
+echo "prints a quiet note if the template has since moved on — never blocking."
 echo ""
 echo "Hooks:       .claude/hooks/ and .cursor/hooks/ scaffolded with plan-writer enforcement hooks."
 echo "             .claude/hooks/ also has subagent-model-policy-check.sh (Claude Code only)"
