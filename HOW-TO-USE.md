@@ -21,7 +21,7 @@ All four live in a `memory/` subdirectory of your project.
 
 **BRIEF.md** is the foundation. It defines what the project is, what's in scope, what's out of scope, and what success looks like. It's the document everything else is measured against — decisions are checked against it, scope creep is caught by comparing proposals to it. It changes rarely and only deliberately. Think of it as scoped to a *phase* of the project, not the entire project — when a phase ends and the next begins, the brief is updated to reflect the new scope.
 
-**CONTEXT.md** is the current snapshot. It answers "where does this project stand right now" — what's being worked on, what's blocked, what's unresolved, what just finished. It gets fully rewritten at the end of every session. It's the first thing a new session reads after the brief, and it's deliberately short (capped at 30 lines) so it stays fast to read and process.
+**CONTEXT.md** is the current snapshot. It answers "where does this project stand right now" — what's being worked on, what's blocked, what's unresolved, what just finished. It gets fully rewritten at the end of every session. It's the first thing a new session reads after the brief, and it's deliberately short (capped at 40 lines) so it stays fast to read and process.
 
 **DECISIONS.md** is the permanent record of anything that was settled. Technology choices, scope boundaries, process decisions, anything that would cause confusion if silently reversed later. Entries are never edited — when circumstances change, a new entry supersedes the old one. The file grows in one direction only.
 
@@ -37,7 +37,7 @@ All four live in a `memory/` subdirectory of your project.
 
 **`wrap-up`** closes out a session. It updates CONTEXT.md with the current project state and appends a new entry to SESSIONS.md. It runs a staleness check on recurring items before it writes — if the same thing has been "coming next" for three sessions running without being acted on or formally deferred, it flags it. It also asks "anything decided today that isn't logged yet?" before writing, to catch decisions that didn't go through `decide` during the session.
 
-**`plan-writer`** writes a structured plan before a non-trivial change begins — multi-file features, refactors, migrations, or anything started in Plan Mode. It researches first, then writes a standalone dated file (reasoning, file-by-file impact, a TODO checklist, risks, and a decision log) instead of leaving the plan in chat. Every plan gets its own file rather than overwriting the last one, so `<plans-dir>/` becomes a permanent history of what was planned and why. Three hooks enforce it automatically once scaffolded: a reminder to check off completed TODOs after each edit, a block on stopping mid-plan with unchecked items, and a block on editing a plan already marked Complete.
+**`plan-writer`** writes a structured plan before a non-trivial change begins — multi-file features, refactors, migrations, or anything started in Plan Mode. It researches first, then writes a standalone dated file (reasoning, file-by-file impact, a TODO checklist, risks, and a decision log) instead of leaving the plan in chat. Every plan gets its own file rather than overwriting the last one, so `<plans-dir>/` becomes a permanent history of what was planned and why. Three hooks enforce it automatically once scaffolded: a reminder to check off completed TODOs after each edit, a block on stopping mid-plan with unchecked items, and a block on editing a plan already closed (marked Complete or Superseded).
 
 ---
 
@@ -49,7 +49,7 @@ Run the project-init script once:
 TEMPLATE_DIR=/path/to/your/templates ./project-init.sh my-project-name
 ```
 
-This creates the directory structure, copies the schema and template files, creates the AGENTS.md/CLAUDE.md symlink, writes empty stub files for the four memory files, sets up git, and writes an initial commit. It also creates `.claude/settings.local.json` with commit attribution disabled — edit or delete that file if you want Claude Code to append Co-Authored-By trailers to commits. It also writes a local, gitignored `.camp-version` file recording which template commit the project was scaffolded from, so later sessions can quietly note if the template has since moved on (see "Keeping projects in sync" in README.md).
+This creates the directory structure, copies the schema and template files, creates the AGENTS.md/CLAUDE.md symlink, writes empty stub files for the four memory files, sets up git, and writes an initial commit. It also creates `.claude/settings.local.json` with commit attribution disabled — edit or delete that file if you want Claude Code to append Co-Authored-By trailers to commits. It also writes a local, gitignored `.camp-version` file recording which template commit and branch (its release channel) the project was scaffolded from, so later sessions can quietly note if the template has since moved on (see "Keeping projects in sync" in README.md).
 
 `project-init.sh` scaffolds the four skills into `.claude/skills/` and `.cursor/skills/` automatically — no separate install step.
 
@@ -79,9 +79,15 @@ At the end of the session, invoke `wrap-up`. It handles CONTEXT.md and SESSIONS.
 
 A project brief is scoped to a phase, not the entire project lifetime. When a meaningful chunk of work is complete and the next phase has a genuinely different scope, run `brief` again. It reads the existing brief, identifies what's changing, proposes the version bump (MAJOR if the Scope In/Out lines change, MINOR for other structural changes), and rewrites the file.
 
-Two things happen automatically at a phase transition: the brief skill scans DECISIONS.md for any entries that were Deferred under the old scope but are now in scope under the new one, and surfaces them before the session begins; and the first `wrap-up` of the new phase applies a reset to CONTEXT.md — clearing phase-specific Open Questions and Recently completed items rather than carrying them forward blindly.
+Two things happen automatically at a phase transition: the brief skill scans DECISIONS.md for any entries that were Deferred under the old scope but are now in scope under the new one, and surfaces them before the session begins; and the first `wrap-up` of the new phase applies a reset to CONTEXT.md — reviewing each Open Question against the new scope (asking you before dropping any) and clearing Recently completed items, rather than carrying them forward blindly.
 
 All decisions made under the old scope remain in DECISIONS.md with their original context. Nothing is lost — they're just understood as belonging to the previous phase when read later.
+
+---
+
+## Branches
+
+If your project uses git, CAMP can keep each piece of in-scope work on its own *branch*: a separate line of history, so unfinished work doesn't touch your main version until you are ready to merge it. You don't manage this yourself. The agent tells you which branch it will use before it starts, and creates it. The setting is one line in BRIEF.md under "Working agreements" (`Branches: on`, `Branches: off`, or your own wording), which `brief` offers when you set up a project (or at a later revision if the line is missing), or a logged decision about branches. If a project has neither, the branching rules do not apply and work stays on the branch you are on. The safety checks apply either way: before saving your memory files, `wrap-up` checks whether your branch has already been merged, and asks you before doing anything if it has. To avoid that, wrap up before you merge the pull request, so your session notes are merged with the code.
 
 ---
 
@@ -188,6 +194,6 @@ age — this is the biggest single payoff of the archiving mechanic.
 | BRIEF.md | `brief` skill | At project start; at phase transitions | Edited directly; touched by other skills |
 | CONTEXT.md | `wrap-up` skill | End of every session | Appended to; edited mid-session |
 | DECISIONS.md | `decide` skill | When a decision is made | Edited; entries deleted |
-| SESSIONS.md | `wrap-up` skill | End of every session | Edited; entries deleted |
+| SESSIONS.md | `wrap-up` skill (also `brief`, for a first brief or a MAJOR or MINOR revision) | End of every session | Edited; entries deleted |
 
 Schema files (`DECISIONS-SCHEMA.md`, `SESSIONS-SCHEMA.md`, `CONTEXT-SCHEMA.md`, `BRIEF-TEMPLATE.md`) live in `memory/` alongside the live files. They're reference documents for the skills — you don't edit them during normal use, but reading them is the fastest way to understand any file's format in detail.

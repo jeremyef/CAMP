@@ -78,7 +78,10 @@ my-project/
 │       └── plan-immutability-check.sh
 ├── .github/
 │   └── workflows/
-│       └── memory-id-check.yml      ← flags duplicate DEC-/SESS- IDs on PRs
+│       └── memory-id-check.yml      ← flags duplicate or reused DEC-/SESS-/ITEM- IDs
+├── scripts/
+│   ├── check-memory-ids.sh          ← the ID check the workflow runs; also runnable locally
+│   └── check-template-update.sh     ← the weekly "behind the template" check (session-start step 7)
 └── memory/
     ├── BRIEF.md                     ← filled by `brief` skill
     ├── BRIEF-TEMPLATE.md            ← schema reference
@@ -294,7 +297,7 @@ session.
 ### Staying oriented across sessions
 
 A few sessions later, `wrap-up` rewrites `memory/CONTEXT.md` from scratch —
-capped at 30 lines, so it's fast to read next time:
+capped at 40 lines, so it's fast to read next time:
 
 ```
 [2026-07-16] [v1.1.0] Streak freeze shipped and capped at 1/month.
@@ -324,8 +327,9 @@ ask.
 ## Keeping projects in sync
 
 Running CAMP across more than one project? `projects-sync.sh` pushes
-AGENTS.md, the four skills, the plan-writer hooks, the subagent-model-policy
-hook, and the memory-ID CI check out to every registered project — so a
+AGENTS.md, HOW-TO-USE.md, the memory schemas and brief template, the four
+skills, the plan-writer hooks, the subagent-model-policy hook, and the
+memory-ID CI check and its script out to every registered project — so a
 fix made here doesn't have to be copied by hand into each one.
 
 ```bash
@@ -340,24 +344,102 @@ cp projects.example.txt projects.txt
 ```bash
 ./projects-sync.sh
 ```
-> Copies AGENTS.md and the four skills into `.claude/skills/` and
-> `.cursor/skills/` in every registered project, syncs the plan-writer
-> hook scripts, the Claude-Code-only subagent-model-policy hook, and
-> `.github/workflows/memory-id-check.yml`, and patches (or creates, if
+> Copies AGENTS.md, HOW-TO-USE.md, `memory/BRIEF-TEMPLATE.md` and the
+> three `memory/*-SCHEMA.md` files, and the four skills into
+> `.claude/skills/` and `.cursor/skills/` in every registered project, syncs
+> the plan-writer hook scripts, the Claude-Code-only subagent-model-policy
+> hook, `.github/workflows/memory-id-check.yml` and
+> `scripts/check-memory-ids.sh`, and patches (or creates, if
 > missing) `.claude/settings.json` / `.cursor/hooks.json` so the hooks
-> stay registered. Commits the changes in each project automatically.
+> stay registered. AGENTS.md is copied last, and is left as-is if any
+> other file failed, so its version line never claims files the project
+> did not receive. Warns if files would change without a version change
+> (see "Versioning the template" below). Commits the changes in each
+> project automatically.
 
 `projects-sync.sh` also refreshes each project's local `.camp-version` file
-with the template's current commit. `AGENTS.md`'s session-start protocol
-reads that file (at most once a week) and prints a low-key, non-blocking
-note if a project's CAMP files have fallen behind the template — never a
-question, never enforced, and silent if the check can't run at all (no
-network, no credentials, no `.camp-version` yet).
+with the template's current commit and branch (its channel, see "Release
+channels" below), but only when the source's `origin` is the `template_repo`
+the project already records. Syncing from another clone (such as a
+development fork) leaves the file alone and says so, so the project is not
+left looking permanently behind.
+
+`AGENTS.md`'s session-start protocol runs `scripts/check-template-update.sh`
+at most once a week. It compares the project's AGENTS.md version with the one
+on its channel (read from a local template repo through git, or from GitHub;
+other hosts are skipped), and the synced commit with the channel's latest
+commit. It prints one low-key, non-blocking note if the channel has a newer
+version, or has changed since the last sync under the same version. If the
+version can't be read, it prints the plain "behind the template" note. It
+prints nothing when the project is current or newer. It never asks a question,
+always exits 0, and is silent if it can't run at all (no network, no
+credentials, no `.camp-version` yet).
+
+`projects-sync.sh` exits 1 if it printed any ERROR line (a missing template
+file or a missing project folder), otherwise 0. Errors do not stop the sync.
+Version-bump warnings are only warnings and do not change the exit status.
 
 ```bash
 ./projects-sync.sh --dry-run   # preview changes, write nothing
 ./projects-sync.sh --no-commit # sync files but leave the commit to you
+./projects-sync.sh --only ~/projects/my-project  # sync one project, ignoring projects.txt
 ```
+> `--only` takes the path of a single existing CAMP project (it must have a
+> `memory/` folder) and does not need it to be registered. It combines with
+> `--dry-run` and `--no-commit`.
+
+### Release channels
+
+A branch of the template repo is a channel. `main` is the release channel.
+`dev` is the pre-release channel, and its AGENTS.md carries a `-dev` version.
+Each project's `.camp-version` records the channel it follows as
+`template_branch` (`main` when the field is absent). `project-init.sh` and
+`projects-sync.sh` write it from the branch checked out in the template clone
+they run from.
+
+To follow `dev`, clone CAMP, run `git switch dev` in that clone, then run
+`project-init.sh` or `projects-sync.sh` from it as usual. To go back to
+releases, sync from a clone on `main`. A sync from another branch of the same
+template repo prints "CAMP channel switched from X to Y." A sync from a
+different repo leaves `.camp-version` as it is.
+
+The weekly check watches the project's own channel, so a project on `dev`
+is told about `dev` changes and a project on `main` only about releases.
+
+### Versioning the template
+
+The first line of AGENTS.md records the CAMP version, for example
+`# AGENTS.md — CAMP v2.0.0 (2026-10-18)`. Every sync and every new
+project gets it, so reading that line in any project tells you which
+template files it has.
+
+When you maintain the template, bump the version whenever you change
+anything `projects-sync.sh` or `project-init.sh` ships, and set the date
+to the day of the change:
+
+- **MAJOR** when existing projects must adopt something: a new memory file
+  format, a new rule they have to follow, a changed plan status.
+- **MINOR** for new rules, files or checks that need no action from a
+  project.
+- **PATCH** for wording only.
+
+A development clone of the template carries a `-dev` suffix (for example
+`v2.0.0-dev`) between releases, so a project synced from it is not
+mistaken for a release. Drop the suffix when the changes are applied to
+the template itself. On the template repo, the `dev` channel carries the
+`-dev` version and `main` the release version.
+
+`projects-sync.sh` checks the rule for you: if it would change a
+project's files and the project already has the same version as the
+template, it warns that the version needs a bump. It only warns, so a
+sync that repairs files edited by hand still goes through. A `-dev`
+source never warns.
+
+The version says which template files a project has, not whether its
+memory files have adopted a new format. A project synced to a new MAJOR
+version may still have memory files in the old format until its next
+sessions rewrite them, so a tool reading those files should check the
+files themselves.
 
 ---
 

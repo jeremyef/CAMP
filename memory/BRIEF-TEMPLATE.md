@@ -72,6 +72,16 @@ This menu is not exhaustive — `brief` may propose a section not
 listed here if a project genuinely calls for it, using the same
 propose-then-confirm rule.
 
+### Working agreements (asked separately)
+One line on how the project uses git, written under a `## Working agreements`
+heading placed before Notes. It is asked once, at a project's first brief, or
+at a later revision if the brief has no such section and no Active decision
+covers branches; it is not proposed with the optional sections above. If the
+user declines to choose, `brief` writes `Branches: off`. `Branches: on` (follow the
+branch rules in AGENTS.md), `Branches: off` (work on the current branch),
+`Branches: per DEC-NNN`, or the user's wording after `on` or `off`, for example
+`Branches: on, but docs changes stay on main`. No quality bar.
+
 ---
 
 ## Per-section quality bar

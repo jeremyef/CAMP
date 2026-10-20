@@ -108,6 +108,8 @@ REQUIRED_TEMPLATES=(
   "skills/plan-writer/hooks/cursor/plan-immutability-check.sh"
   "hooks/claude/subagent-model-policy-check.sh"
   ".github/workflows/memory-id-check.yml"
+  "scripts/check-memory-ids.sh"
+  "scripts/check-template-update.sh"
 )
 
 MISSING=()
@@ -231,6 +233,10 @@ chmod +x "./.claude/hooks/subagent-model-policy-check.sh"
 
 # CI check — inert until a remote + PR workflow exist; harmless either way.
 copy_if_absent "$TEMPLATE_DIR/.github/workflows/memory-id-check.yml" "./.github/workflows/memory-id-check.yml"
+# The script the workflow runs (also runnable locally: bash scripts/check-memory-ids.sh memory).
+copy_if_absent "$TEMPLATE_DIR/scripts/check-memory-ids.sh" "./scripts/check-memory-ids.sh"
+# The script AGENTS.md session-start step 7 runs for the weekly template check.
+copy_if_absent "$TEMPLATE_DIR/scripts/check-template-update.sh" "./scripts/check-template-update.sh"
 
 # ── Hook registration ──────────────────────────────────────────────────────
 # If settings.json / hooks.json don't exist yet, write them fresh (as
@@ -422,6 +428,8 @@ write_if_absent memory/SESSIONS.md  "# See memory/SESSIONS-SCHEMA.md — content
 # AGENTS.md's session-start check can tell if the template has moved on.
 # template_repo is left blank if TEMPLATE_DIR has no origin remote (e.g. a
 # local-only template) — AGENTS.md's check skips silently when it's blank.
+# template_branch is the release channel (main = release, dev = pre-release);
+# a file without it is read as main.
 # Local/gitignored like settings.local.json: last_checked_at updates weekly
 # as a side effect of that check, and committing that churn on a schedule
 # unrelated to any real project change would make it a permanent source of
@@ -429,9 +437,14 @@ write_if_absent memory/SESSIONS.md  "# See memory/SESSIONS-SCHEMA.md — content
 
 TEMPLATE_REMOTE="$(cd "$TEMPLATE_DIR" && git remote get-url origin 2>/dev/null || true)"
 TEMPLATE_COMMIT="$(cd "$TEMPLATE_DIR" && git rev-parse --short HEAD 2>/dev/null || true)"
+TEMPLATE_BRANCH="$(git -C "$TEMPLATE_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [ -z "$TEMPLATE_BRANCH" ] || [ "$TEMPLATE_BRANCH" = "HEAD" ]; then
+  TEMPLATE_BRANCH="main"
+fi
 TODAY="$(date +%Y-%m-%d)"
 
 write_if_absent_local .camp-version "template_repo: $TEMPLATE_REMOTE
+template_branch: $TEMPLATE_BRANCH
 synced_commit: $TEMPLATE_COMMIT
 synced_at: $TODAY
 last_checked_at: $TODAY"
@@ -650,8 +663,9 @@ echo "             .claude/hooks/ also has subagent-model-policy-check.sh (Claud
 echo "             enforcing CLAUDE.md's subagent-model-policy on Agent/Workflow calls."
 echo "             Registered in .claude/settings.json and .cursor/hooks.json."
 echo ""
-echo "CI:          .github/workflows/memory-id-check.yml scaffolded — flags duplicate"
-echo "             DEC-/SESS- IDs on PRs touching memory/. Inert until you push a remote."
+echo "CI:          .github/workflows/memory-id-check.yml scaffolded — flags duplicate or reused"
+echo "             DEC-/SESS-/ITEM- IDs on PRs and pushes touching memory/, by running"
+echo "             scripts/check-memory-ids.sh (also runnable locally). Inert until you push a remote."
 echo ""
 echo "Optional: to enforce PR-only merges once you've pushed a remote (blocks direct"
 echo "  pushes to main, requires the memory ID check above to pass before merging):"

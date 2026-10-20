@@ -55,10 +55,22 @@ Using the existing sections identified in Step 0 as the starting
 point:
 - For a new project: propose which optional sections apply,
   with a one-line reason each.
+  Separately, ask once about the Working agreements line (see
+  memory/BRIEF-TEMPLATE.md): whether the project should use a separate
+  branch for in-scope work (the default: branches on), turn it off, or word
+  it differently, and write the answer as one line.
 - For a revision: list existing optional sections and ask whether
   each should be kept, updated, or removed. Then propose any new
   optional sections not currently present that would apply, with
-  a one-line reason each.
+  a one-line reason each, except Working agreements, which is not
+  proposed with them. If the brief already has a `## Working agreements`
+  section, raise it only if the user does. If it has none and
+  memory/DECISIONS.md has no Active decision about how the project uses
+  branches, ask the same question once, separately, as for a new project
+  (projects briefed before the line existed were never asked). If the user
+  declines to choose, write `Branches: off`, which is what having no line
+  already means, and say so, so the question does not come back at later
+  revisions. Adding the section makes the bump MINOR (see Step 3).
 
 Wait for explicit confirmation of the final section list before
 drafting anything. If the user declines all optional sections,
@@ -95,7 +107,12 @@ as given, no scrutiny.
 Skip Steps 0b and 1 entirely. Ask the user which section(s) they
 want to update. Show the current content for each named section,
 elicit the new wording, apply no quality bar (PATCH = wording only
-by definition). Proceed directly to Step 3 (PATCH) and Step 4.
+by definition). Then, if the brief has no `## Working agreements`
+section, ask about it exactly as Step 1 does for a revision, including
+writing `Branches: off` if the user declines to choose. Proceed directly
+to Step 3 and Step 4. The bump is PATCH, unless the Working agreements
+section was added: that is a new section, so the bump is MINOR, with the
+SESSIONS.md entry and tag a MINOR revision gets.
 
 ## Step 3 — versioning
 Determine the bump before writing. For a phase transition, also
@@ -162,7 +179,23 @@ For a MAJOR or MINOR revision — write a SESSIONS.md entry
 immediately, regardless of whether `wrap-up` will run this session.
 Read SESSIONS.md to get the next SESS-ID. For a phase transition,
 the Summary may span multiple sentences — one per meaningful thread
-of change:
+of change.
+
+Next steps in this entry carries the list forward; it does not start
+over. Repeat every line of the most recent prior entry's Next steps,
+whichever skill wrote it, then add this revision's own steps:
+- An `ITEM-NNN` line keeps its ID and its exact `- ITEM-NNN: text` form,
+  since `wrap-up`'s staleness check and any tool reading open items from
+  the latest entry match that form. Its text may be reworded to fit the
+  new scope.
+- `brief` never drops or closes an item, even one this revision seems to
+  settle. Closing is `wrap-up`'s job, in its Closed field.
+- A plain line (no ID) that this revision itself completed may be left
+  out, but only if the Summary says so.
+- New steps follow memory/SESSIONS-SCHEMA.md: plain text, unless they
+  restate an item already tracked in CONTEXT.md.
+- If the prior entry's Next steps is "None", write only this revision's
+  own steps, or "None".
 
 ```
 ## SESS-NNN — YYYY-MM-DD
@@ -174,7 +207,8 @@ Success criteria updated to reflect new phase targets.
 Brief version: vX.Y.Z
 Decisions: <DEC-NNN if triggered by decide handoff, or "None">
 
-Next steps: <whatever applies, or "None">
+Next steps: <the prior entry's Next steps carried forward, then this
+revision's own (see above), or "None">
 ```
 
 For PATCH bumps — no SESSIONS.md entry required; the next `wrap-up`
@@ -182,10 +216,17 @@ captures it naturally.
 
 Git (only if inside a git work tree — check per AGENTS.md's
 git-detection rule; skip entirely if not):
+- Pre-commit check: before staging, check whether any non-memory
+  files are dirty or staged. If any are found, surface the list of
+  dirty file paths and ask: "These non-memory files are uncommitted —
+  commit them first, or proceed with the memory-only commit?" Wait
+  for an explicit answer before staging anything. Do not commit the
+  dirty files and do not auto-continue.
 - Stage only memory/BRIEF.md (and memory/SESSIONS.md if an entry
-  was written above).
+  was written above). Name the same paths in the commit (`git commit -m
+  "<message>" -- <the paths>`), so anything else already staged stays out.
 - New project: commit `chore(brief): initial brief v1.0.0` — no tag.
-- Revision: commit `chore(brief): bump to vX.Y.Z — <one-line
+- Revision: commit `chore(brief): bump to vX.Y.Z: <one-line
   reason>`. For MAJOR or MINOR: also run
   `git tag -a brief-vX.Y -m "<reason>"` after committing.
   PATCH: commit only, no tag.

@@ -21,24 +21,44 @@
 
 INPUT=$(cat)
 
+# Emit the JSON through json.dumps so quotes, backslashes and control
+# characters in plan names, titles or paths can never break the output.
+json_context() {
+  python3 -c 'import json,sys; print(json.dumps({"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":sys.argv[1]}}))' "$1"
+}
+
+# The plan's status lives in its header line only (`> **Date:** ... **Status:** X`).
+# Read that line, never the whole file, so a plan that merely quotes a status
+# string in its body is not mistaken for having that status.
+plan_status_raw() {
+  grep -m1 -E '^> \*\*Date:\*\*' "$1" 2>/dev/null | sed -nE 's/.*\*\*Status:\*\* *//p' | sed -E 's/[[:space:]]+$//'
+}
+# The recognised status is the leading word: one of the six values, followed
+# by end of line or a non-letter. A short trailing note is tolerated.
+plan_status() {
+  plan_status_raw "$1" | sed -nE 's/^(Draft|Approved|In Progress|Paused|Complete|Superseded)([^A-Za-z].*)?$/\1/p'
+}
+
 PLANS_DIR=".claude/plans"
 [ -d "$PLANS_DIR" ] || exit 0
 
-ACTIVE_PLAN=$(grep -Fl "**Status:** In Progress" "$PLANS_DIR"/*.md 2>/dev/null | xargs -r ls -t | head -n 1)
+# plans_with_status STATUS: plan files whose header status is exactly STATUS.
+plans_with_status() {
+  local want="$1" f
+  for f in "$PLANS_DIR"/*.md; do
+    [ -f "$f" ] || continue
+    [ "$(plan_status "$f")" = "$want" ] && echo "$f"
+  done
+}
+
+ACTIVE_PLAN=$(plans_with_status "In Progress" | xargs -r ls -t | head -n 1)
 
 if [ -n "$ACTIVE_PLAN" ]; then
-  cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PostToolUse",
-    "additionalContext": "Active plan: $ACTIVE_PLAN. If this edit completes a TODO item, check it off there before continuing."
-  }
-}
-EOF
+  json_context "Active plan: $ACTIVE_PLAN. If this edit completes a TODO item, check it off there before continuing."
   exit 0
 fi
 
-mapfile -t APPROVED < <(grep -Fl "**Status:** Approved" "$PLANS_DIR"/*.md 2>/dev/null | sort)
+mapfile -t APPROVED < <(plans_with_status "Approved" | sort)
 [ "${#APPROVED[@]}" -gt 0 ] || exit 0
 
 # Extract the edited file's path from tool_input specifically (not a raw
@@ -75,14 +95,7 @@ touch "$MARKER_FILE"
 LIST=""
 for plan in "${APPROVED[@]}"; do
   TITLE=$(head -n 1 "$plan" | sed -E 's/^# Plan: //')
-  LIST="${LIST}${plan} (\\\"${TITLE}\\\"); "
+  LIST="${LIST}${plan} (\"${TITLE}\"); "
 done
 
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PostToolUse",
-    "additionalContext": "This edit is outside the plans/memory directories, and these plans are Approved but not yet In Progress: ${LIST}If this edit is implementation work for one of them, ask the user whether to mark that specific plan In Progress -- don't update its Status line without confirming."
-  }
-}
-EOF
+json_context "This edit is outside the plans/memory directories, and these plans are Approved but not yet In Progress: ${LIST}If this edit is implementation work for one of them, ask the user whether to mark that specific plan In Progress -- don't update its Status line without confirming."

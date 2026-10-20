@@ -2,8 +2,13 @@
 
 ## ID format
 DEC-NNN, zero-padded to 3 digits, sequential, never reused, never
-renumbered. Numbering continues across archive boundaries — an archived
-entry keeps its original ID forever.
+renumbered once on the default branch. Two branches that each add the
+next number collide, usually as a git conflict at the end of the file. Before
+the second branch merges, whoever merges it, by hand, keeps both entries and
+gives its own the next free number, in the entry and in the references the
+file holds (Supersedes, Resolves). Commit messages and footers already
+written keep the old number, so say so in the entry. Numbering continues
+across archive boundaries — an archived entry keeps its original ID forever.
 
 ---
 

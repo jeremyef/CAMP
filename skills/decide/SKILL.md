@@ -193,7 +193,9 @@ git-detection rule; skip entirely if not):
   if archiving ran this turn).
 - Commit: `chore(memory): log decision [DEC-NNN]` where DEC-NNN is
   the ID of the entry just written — read from the entry itself,
-  do not invent.
+  do not invent. Name the same paths in the commit (`git commit -m
+  "<message>" -- <the paths above>`), so anything else already staged
+  stays out of it.
 - If this decision coincides with a code change in the same session,
   do not bundle it into this commit — see AGENTS.md, "Attaching
   decisions to code commits."

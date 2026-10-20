@@ -3,10 +3,20 @@ name: Memory ID collision check
 on:
   pull_request:
     paths:
+      - 'memory/CONTEXT.md'
       - 'memory/DECISIONS.md'
       - 'memory/SESSIONS.md'
       - 'memory/DECISIONS-ARCHIVE/**'
       - 'memory/SESSIONS-ARCHIVE/**'
+      - 'scripts/check-memory-ids.sh'
+  push:
+    paths:
+      - 'memory/CONTEXT.md'
+      - 'memory/DECISIONS.md'
+      - 'memory/SESSIONS.md'
+      - 'memory/DECISIONS-ARCHIVE/**'
+      - 'memory/SESSIONS-ARCHIVE/**'
+      - 'scripts/check-memory-ids.sh'
 
 jobs:
   check-duplicate-ids:
@@ -14,22 +24,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Scan for duplicate DEC-/SESS- IDs
-        run: |
-          set -euo pipefail
-          fail=0
-
-          check() {
-            local pattern="$1"; shift
-            local dupes
-            dupes=$(grep -ohE "$pattern" "$@" 2>/dev/null | sort | uniq -d || true)
-            if [ -n "$dupes" ]; then
-              echo "::error::Duplicate ID(s): $(echo "$dupes" | tr '\n' ' ')"
-              fail=1
-            fi
-          }
-
-          check 'DEC-[0-9]{3,}' memory/DECISIONS.md memory/DECISIONS-ARCHIVE/*.md
-          check 'SESS-[0-9]{3,}' memory/SESSIONS.md memory/SESSIONS-ARCHIVE/*.md
-
-          exit $fail
+      - name: Scan for duplicate or reused DEC-/SESS-/ITEM- IDs
+        run: bash scripts/check-memory-ids.sh memory

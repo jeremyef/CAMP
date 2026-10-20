@@ -2,7 +2,12 @@
 
 ## ID format
 SESS-NNN, zero-padded to 3 digits, sequential, never reused, never
-renumbered. Numbering continues across archive boundaries — an archived
+renumbered once on the default branch. Two branches that each add the
+next number collide, usually as a git conflict at the end of the file. Before
+the second branch merges, whoever merges it, by hand, keeps both entries and
+gives its own the next free number, in the entry and in the closure notes
+that cite it. Commit messages already written keep the old number, so say so
+in the entry. Numbering continues across archive boundaries — an archived
 entry keeps its original ID forever.
 
 ## Session boundary — what counts as "one session"
@@ -22,14 +27,56 @@ tries to detect natural breakpoints on its own.
   from the session log without cross-referencing git history.
 - Decisions — always present. Zero items: write "None". One item:
   inline. Two or more: bulleted sub-list.
+- Closed — always present **in a `wrap-up`-authored entry**; omitted
+  entirely (not even "None") in a `brief`-authored entry, since
+  `brief` never touches item lifecycle at all — the "always present"
+  rule below only applies to entries this field's owner actually
+  writes. Despite its name, this field also logs the one non-closure
+  case in the vocabulary ("moved to [section]") — the name describes
+  the common case, not a strict guarantee that every line it holds is
+  a true closure. Zero items: write "None". One item: inline. Two or
+  more: bulleted sub-list. Records what happened to any `ITEM-NNN`
+  that disappeared from, or changed category within,
+  memory/CONTEXT.md's Open questions/Active blockers since the
+  previous snapshot. Written exactly once per affected ID, using the
+  closure vocabulary memory/CONTEXT-SCHEMA.md's "ID format" section
+  defines (resolved / decided per DEC-NNN / deferred per DEC-NNN /
+  merged into ITEM-MMM / split into ITEM-MMM, ITEM-NNN / dropped /
+  moved to [section] / re-minted as ITEM-MMM). This field exists
+  specifically so an item's disappearance is never silent and never
+  just implied by Summary or Next steps prose — always present in a
+  `wrap-up` entry, even when "None", so its absence there is never
+  ambiguous with "forgot to write it."
 - Files touched — omitted entirely (not written, not "None") if zero
   items. One item: inline. Two or more: bulleted sub-list. Paths are
-  relative to project root. Never includes anything under memory/
-  itself — that's implied by the entry's own existence, not separately
-  reported.
+  relative to project root. Never includes `memory/BRIEF.md`,
+  `memory/CONTEXT.md`, `memory/DECISIONS.md`, or `memory/SESSIONS.md`
+  themselves — a change to one of those four is already implied by
+  this entry's own existence, not separately reported. This exclusion
+  is by file name, not by folder: a hand-edited file that happens to
+  live in `memory/` but isn't one of those four (e.g.
+  `CONTEXT-SCHEMA.md`, `SESSIONS-SCHEMA.md`) is a real change nothing
+  else implies, and must be listed like any other file.
 - Next steps — always present. Zero items: write "None". One item:
   inline. Two or more: bulleted sub-list. See "Purpose of Next steps"
-  below for what belongs here.
+  below for what belongs here. When a line restates something already
+  tracked as a CONTEXT.md Open question or Active blocker, it must
+  carry that item's `ITEM-NNN:` prefix — this is what makes the
+  ID-based (not prose-based) Next-steps staleness check in
+  skills/wrap-up/SKILL.md actually enforceable. A genuine one-off
+  action with no CONTEXT.md counterpart stays plain prose, no prefix.
+  An entry written by `brief` (a MAJOR or MINOR revision) carries the
+  previous entry's Next steps forward, IDs and form unchanged, before
+  adding its own; it never drops an `ITEM-NNN` line (see the `brief`
+  skill).
+- Context cap exception — omitted entirely if not used this session.
+  Present only when this session's `wrap-up` took the one-time
+  +5-line overflow exception defined in memory/CONTEXT-SCHEMA.md's
+  "Hard cap and overflow handling" section. Format when present:
+  `Context cap exception: used`. The *next* `wrap-up` run checks the
+  immediately prior entry for this exact line before offering the
+  exception again — if found, the exception isn't available this
+  time, and overflow must be resolved via `decide` instead.
 
 ## Entry template
 
@@ -43,6 +90,7 @@ Summary: What happened this session in plain prose.
 
 Brief version: v1.0.0
 Decisions: DEC-001
+Closed: ITEM-004 resolved
 Files touched: src/auth/login.ts
 Next steps: Draft the CONTEXT.md schema.
 
@@ -57,13 +105,17 @@ Decisions:
 - DEC-004
 - DEC-005
 
+Closed:
+- ITEM-007 merged into ITEM-003
+- ITEM-011 moved to Active blockers
+
 Files touched:
 - src/auth/login.ts
 - src/auth/session.ts
 - tests/auth.test.ts
 
 Next steps:
-- Review the wrap-up skill for the Next-steps staleness check.
+- ITEM-014: Review the wrap-up skill for the Next-steps staleness check.
 - Save DECISIONS-SCHEMA.md as an artifact.
 
 ### Nothing to report on optional fields
@@ -73,10 +125,13 @@ Summary: Research session only — no code or files changed.
 
 Brief version: v2.0.0
 Decisions: None
+Closed: None
 Next steps: None
 
-(Files touched is omitted entirely when there's nothing to list —
-not written as "Files touched: None".)
+(Files touched and Context cap exception are omitted entirely when
+there's nothing to list — not written as "None". Closed and the other
+always-present fields are the opposite: always written, even as
+"None".)
 
 Date used is the date `wrap-up` actually runs, not the date the
 session started — relevant for sessions that cross midnight.
@@ -99,7 +154,10 @@ or did it just quietly stop being mentioned?" — a kind of silent scope
 drift that a Deferred entry in DECISIONS.md cannot catch, since
 DECISIONS.md only records things that were explicitly decided. An item
 that fades out of "Next steps" across several sessions without ever
-being formally deferred is itself a signal worth surfacing.
+being formally deferred is itself a signal worth surfacing. (As of
+this scheme, an item closing is also recorded explicitly in the
+Closed field above — Next steps and Closed serve different purposes
+and neither substitutes for the other.)
 
 This value is only realized if something actually reads the trail back
 — on its own, an unread historical field has no effect. `wrap-up`
